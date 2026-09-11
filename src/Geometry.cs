@@ -28,13 +28,11 @@ namespace MagicZones
             return 1 - u * u * u;
         }
 
-        /// <summary>Slight overshoot, feels like the window "lands" in the zone.</summary>
-        public static double EaseOutBack(double t)
+        public static double EaseOutQuart(double t)
         {
             t = Math.Max(0, Math.Min(1, t));
-            const double c1 = 1.20158, c3 = c1 + 1;
-            double u = t - 1;
-            return 1 + c3 * u * u * u + c1 * u * u;
+            double u = 1 - t;
+            return 1 - u * u * u * u;
         }
 
         public static GraphicsPath RoundedRect(RectangleF r, float radius)

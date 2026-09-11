@@ -17,6 +17,7 @@ namespace MagicZones
         private readonly ZoneManager zones;
         private readonly OverlayManager overlay;
         private readonly WindowMover mover;
+        private readonly PopupWindow popup;
 
         // Delegates must stay referenced or the GC eats them while Windows still calls them.
         private readonly Native.WinEventDelegate moveSizeProc;
@@ -32,13 +33,16 @@ namespace MagicZones
         private Size startVisibleSize;
         private bool moving;              // confirmed move (not a resize)
         private bool resizing;
+        private bool startZoomed;         // maximized when grabbed
+        private bool startOnFrame;        // grabbed on the resize border rather than the title bar
 
-        public DragTracker(AppConfig config, ZoneManager zones, OverlayManager overlay, WindowMover mover)
+        public DragTracker(AppConfig config, ZoneManager zones, OverlayManager overlay, WindowMover mover, PopupWindow popup)
         {
             this.config = config;
             this.zones = zones;
             this.overlay = overlay;
             this.mover = mover;
+            this.popup = popup;
             moveSizeProc = OnMoveSize;
             locationProc = OnLocationChange;
             tick.Tick += (s, e) => Tick();
@@ -64,8 +68,11 @@ namespace MagicZones
             try
             {
                 if (idObject != Native.OBJID_WINDOW || hwnd == IntPtr.Zero) return;
+                Log.Debug((evt == Native.EVENT_SYSTEM_MOVESIZESTART ? "MOVESIZESTART " : "MOVESIZEEND ") + hwnd + " tracked=" + dragHwnd);
                 if (evt == Native.EVENT_SYSTEM_MOVESIZESTART) BeginDrag(hwnd);
-                else if (evt == Native.EVENT_SYSTEM_MOVESIZEEND && hwnd == dragHwnd) EndDrag(apply: true);
+                else if (evt == Native.EVENT_SYSTEM_MOVESIZEEND && dragHwnd != IntPtr.Zero &&
+                         (hwnd == dragHwnd || Native.GetAncestor(hwnd, Native.GA_ROOT) == dragHwnd))
+                    EndDrag(apply: true);
             }
             catch (Exception e)
             {
@@ -82,16 +89,23 @@ namespace MagicZones
         private void BeginDrag(IntPtr hwnd)
         {
             EndDrag(apply: false);
-            if (!config.Enabled || zones.Zones.Count == 0) return;
+            if (!config.Enabled || (zones.Zones.Count == 0 && !PopupMode)) return;
             hwnd = Native.GetAncestor(hwnd, Native.GA_ROOT);
             if (hwnd == IntPtr.Zero || IsExcluded(hwnd)) return;
 
+            // The user grabbed it: stop any flight/settle still positioning this window.
+            mover.Release(hwnd);
+
             dragHwnd = hwnd;
             startRect = Native.WindowRect(hwnd);
+            startZoomed = Native.IsZoomed(hwnd);
+            startOnFrame = IsOnFrame(hwnd, Native.CursorPos());
+            Log.Debug($"drag begin {hwnd} rect={startRect} zoomed={startZoomed} onFrame={startOnFrame} cursor={Native.CursorPos()}");
             startVisibleSize = Native.VisibleRect(hwnd).Size;
             moving = resizing = false;
             state.Hover.Clear();
             state.ThrowTarget = null;
+            state.OnlyActive = false;
             sampler.Reset();
             sampler.Add(Native.CursorPos());
 
@@ -115,15 +129,15 @@ namespace MagicZones
                 var s0 = startRect;
                 if (Math.Abs(r.Width - s0.Width) > 1 || Math.Abs(r.Height - s0.Height) > 1)
                 {
-                    // Size changed. A real resize keeps one edge fixed on each axis; a maximized (or
-                    // OS-snapped) window being dragged out gets restored, so every edge jumps: that's a move.
-                    bool hFixed = Math.Abs(r.Left - s0.Left) <= 1 || Math.Abs(r.Right - s0.Right) <= 1;
-                    bool vFixed = Math.Abs(r.Top - s0.Top) <= 1 || Math.Abs(r.Bottom - s0.Bottom) <= 1;
-                    if (hFixed && vFixed) { resizing = true; overlay.Hide(); return; }
+                    // Size changed: a resize only if the drag started on the frame. Grabbed by the title bar,
+                    // a size change means Windows restored a maximized/snapped window under the cursor
+                    // (it first restores in place, top-left fixed, which looks exactly like a resize).
+                    if (startOnFrame && !startZoomed) { resizing = true; overlay.Hide(); Log.Debug("resize detected"); return; }
                     moving = true;
                     startVisibleSize = Native.VisibleRect(dragHwnd).Size; // the restored size is the "real" one
+                    Log.Debug($"move detected (restored from max/snap) rect={r}");
                 }
-                else if (r.Location != s0.Location) moving = true;
+                else if (r.Location != s0.Location) { moving = true; Log.Debug($"move detected rect={r}"); }
                 else return;
             }
             if (resizing) return;
@@ -135,10 +149,13 @@ namespace MagicZones
             if (!want)
             {
                 if (overlay.Visible) overlay.Hide();
+                popup.Close();
                 state.Hover.Clear();
                 state.ThrowTarget = null;
                 return;
             }
+
+            if (PopupMode) { TickPopup(cursor, ctrl); return; }
 
             var hit = zones.HitTest(cursor);
             if (!ctrl) state.Hover.Clear();
@@ -164,6 +181,36 @@ namespace MagicZones
             else overlay.Update(state);
         }
 
+        private bool PopupMode => config.Mode != "overlay";
+
+        /// <summary>Popup mode: the mini-map sits above the window; hovering a tile previews the destination.</summary>
+        private void TickPopup(Point cursor, bool ctrl)
+        {
+            var windowRect = Native.VisibleRect(dragHwnd);
+            state.ThrowTarget = null;
+            state.OnlyActive = true;
+            if (!popup.IsOpen) popup.Open(cursor, windowRect, state);
+
+            var hit = popup.HitTest(cursor);
+            if (!ctrl) state.Hover.Clear();
+            if (hit != null)
+            {
+                if (state.Hover.Count > 0 && state.Hover.First().Monitor != hit.Monitor) state.Hover.Clear();
+                state.Hover.Add(hit);
+            }
+
+            // Ghost of the destination on the real monitor, so you see where it will land.
+            if (state.Hover.Count > 0)
+            {
+                if (!overlay.Visible) overlay.Show(state);
+                else overlay.Update(state);
+                popup.BringToFront();
+            }
+            else if (overlay.Visible) overlay.Hide();
+
+            popup.Update(state, windowRect, cursor);
+        }
+
         private void EndDrag(bool apply)
         {
             if (dragHwnd == IntPtr.Zero) return;
@@ -174,14 +221,33 @@ namespace MagicZones
             locationHook = IntPtr.Zero;
 
             bool overlayWasOn = overlay.Visible;
+            bool popupWasOpen = popup.IsOpen;
+            var cursor = Native.CursorPos();
+            var popupHit = popupWasOpen ? popup.HitTest(cursor) : null;
             overlay.Hide();
+            popup.Close();
+            state.OnlyActive = false;
+            Log.Debug($"drag end {hwnd} apply={apply} moving={moving} resizing={resizing} popupHit={(popupHit == null ? "-" : popupHit.Monitor.Number + ":" + popupHit.Number)} cursor={cursor} rect={Native.WindowRect(hwnd)}");
             if (!apply || !moving || resizing || !Native.IsWindow(hwnd)) return;
 
-            var cursor = Native.CursorPos();
             sampler.Add(cursor);
             bool shift = Native.IsKeyDown(Native.VK_SHIFT);
             bool ctrl = Native.IsKeyDown(Native.VK_CONTROL);
             bool active = config.Activation == "shift" ? shift : !shift;
+
+            if (PopupMode)
+            {
+                // Launch only when released on a tile; anywhere else it's a normal move.
+                if (active && popupHit != null)
+                {
+                    var targets = ctrl && state.Hover.Count > 1 && state.Hover.Contains(popupHit)
+                        ? state.Hover.ToList() : new List<Zone> { popupHit };
+                    if (targets.Count > 1) mover.Apply(hwnd, ZoneKind.Snap, zones.SpanRect(targets), animate: true, startVisibleSize);
+                    else mover.Apply(hwnd, popupHit.Kind, zones.TargetRect(popupHit), animate: true, startVisibleSize);
+                }
+                else mover.RestoreIfSnapped(hwnd, cursor);
+                return;
+            }
 
             if (!active || !overlayWasOn)
             {
@@ -222,6 +288,19 @@ namespace MagicZones
 
             // 3) Nowhere: plain move; un-snap size if we snapped it before.
             mover.RestoreIfSnapped(hwnd, cursor);
+        }
+
+        /// <summary>
+        /// Cursor on the resize border? The border is mostly outside the visible frame (invisible
+        /// Win10/11 borders) plus a thin band inside it; the top band sits on the title bar's top edge.
+        /// </summary>
+        private bool IsOnFrame(IntPtr hwnd, Point c)
+        {
+            var vis = Native.VisibleRect(hwnd);
+            var m = Monitors.FromPoint(zones.Monitors, c);
+            int band = (int)Math.Round(6 * (m?.Scale ?? 1f));
+            if (!vis.Contains(c)) return true;
+            return c.X - vis.Left < band || vis.Right - 1 - c.X < band || vis.Bottom - 1 - c.Y < band || c.Y - vis.Top < band;
         }
 
         private bool IsExcluded(IntPtr hwnd)

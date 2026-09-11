@@ -21,6 +21,7 @@ namespace MagicZones
             ZoneMath();
             Throws();
             Neighbours();
+            PopupTiles();
             Console.WriteLine(failures == 0 ? "SELFTEST OK" : $"SELFTEST: {failures} FALLITI");
             return failures;
         }
@@ -94,6 +95,38 @@ namespace MagicZones
             Check(Name(zm.ThrowTarget(from, -3000, 2600, cfg.ThrowMomentum, out _)) == "M1Z2", "lancio: in diagonale giù-sinistra (basso)");
             Check(Name(zm.ThrowTarget(new Point(2400, 700), 20000, 0, cfg.ThrowMomentum, out _)) == "M2Z3", "lancio: contro il muro resta sull'ultima zona");
             Check(Name(zm.ThrowTarget(new Point(-540, 400), 9000, 0, cfg.ThrowMomentum, out _)) == "M2Z3", "lancio: verticale -> fondo del principale");
+        }
+
+        private static void PopupTiles()
+        {
+            var zm = Synthetic(out var cfg);
+            using (var popup = new PopupWindow(cfg, zm))
+            {
+                // Window high on the main monitor: no room above, popup must float below the cursor.
+                popup.Layout(new Point(1200, 30), new Rectangle(700, 14, 1100, 700));
+                var b = popup.Bounds;
+                var wa = zm.Monitors[1].WorkArea;
+                Check(b.Top > 30 && b.Bottom <= wa.Bottom + 20 && b.Left >= wa.Left - 20 && b.Right <= wa.Right + 20,
+                    "popup: senza spazio sopra finisce sotto il cursore, dentro lo schermo", b.ToString());
+
+                // Window lower down: popup sits above its top edge.
+                popup.Layout(new Point(1200, 616), new Rectangle(700, 600, 1100, 700));
+                Check(popup.Bounds.Bottom <= 600 + 20, "popup: appare sopra la finestra", popup.Bounds.ToString());
+
+                var centers = popup.TileCenters().ToList();
+                Check(centers.Count == 5, "popup: una tessera per zona", centers.Count.ToString());
+                bool allHit = centers.All(c => popup.HitTest(c.Value) == c.Key);
+                Check(allHit, "popup: il centro di ogni tessera colpisce la sua zona");
+                Check(popup.HitTest(new Point(popup.Bounds.X + 2, popup.Bounds.Y + 2)) == null, "popup: bordo del pannello = nessuna zona");
+
+                // Monitor without zones: the whole monitor becomes one tile.
+                cfg.Layouts[0].Zones.Clear();
+                zm.RebuildFrom(zm.Monitors);
+                popup.Layout(new Point(1200, 616), new Rectangle(700, 600, 1100, 700));
+                var whole = popup.TileCenters().Select(c => c.Key).FirstOrDefault(z => z.Number == 0);
+                Check(whole != null && zm.TargetRect(whole) == Rectangle.FromLTRB(-1072, 8, -8, 1864),
+                    "popup: monitor senza zone = tessera schermo intero");
+            }
         }
 
         private static void Neighbours()

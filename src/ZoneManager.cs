@@ -43,9 +43,20 @@ namespace MagicZones
                     zones.Add(new Zone { Monitor = m, Number = n++, Def = def, Rect = def.ToPixels(m.WorkArea) });
             }
             Zones = zones;
+            wholeMonitor.Clear();
         }
 
         public IEnumerable<Zone> ZonesOn(MonitorInfo m) => Zones.Where(z => z.Monitor == m);
+
+        private readonly Dictionary<MonitorInfo, Zone> wholeMonitor = new Dictionary<MonitorInfo, Zone>();
+
+        /// <summary>Pseudo-zone covering a monitor's whole work area (for monitors without zones).</summary>
+        public Zone WholeMonitor(MonitorInfo m)
+        {
+            if (!wholeMonitor.TryGetValue(m, out var z))
+                wholeMonitor[m] = z = new Zone { Monitor = m, Number = 0, Def = new ZoneDef(0, 0, 1, 1), Rect = m.WorkArea };
+            return z;
+        }
 
         /// <summary>Zone under a point. Overlapping zones: the smallest one wins (most specific).</summary>
         public Zone HitTest(Point p)

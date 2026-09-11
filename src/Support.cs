@@ -13,6 +13,14 @@ namespace MagicZones
 
         public static string FilePath => Path.Combine(AppConfig.Folder, "log.txt");
 
+        /// <summary>Drag lifecycle tracing ("debugLog": true in config.json).</summary>
+        public static bool Verbose;
+
+        public static void Debug(string msg)
+        {
+            if (Verbose) Write("[dbg] " + msg);
+        }
+
         public static void Write(string msg)
         {
             try

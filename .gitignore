@@ -1,3 +1,4 @@
 bin/
 preview/
 *.tmp
+tools/bin/

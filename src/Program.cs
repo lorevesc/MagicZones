@@ -78,6 +78,24 @@ namespace MagicZones
                 }
             }
 
+            using (var popup = new PopupWindow(config, zones))
+            {
+                // A window on the primary monitor, dragged by its title bar; hovering a far zone.
+                var primary = System.Linq.Enumerable.First(zones.Monitors, m => m.Primary);
+                var win = new System.Drawing.Rectangle(primary.WorkArea.X + 700, primary.WorkArea.Y + 520, 1100, 700);
+                var cursor = new System.Drawing.Point(win.X + 520, win.Y + 16);
+                popup.Layout(cursor, win);
+                var state = new OverlayState();
+                popup.Update(state, win, cursor, force: true);
+                popup.SaveSnapshot(System.IO.Path.Combine(dir, "popup.png"));
+
+                var far = System.Linq.Enumerable.FirstOrDefault(zones.Zones, z => z.Monitor != primary)
+                          ?? System.Linq.Enumerable.Last(zones.Zones);
+                state.Hover.Add(far);
+                popup.Update(state, win, cursor, force: true);
+                popup.SaveSnapshot(System.IO.Path.Combine(dir, "popup-hover.png"));
+            }
+
             var session = new EditorSession(config, zones.Monitors, _ => { }, show: false);
             session.SelectedMonitor = zones.Monitors[0];
             session.SelectedIndex = 0;

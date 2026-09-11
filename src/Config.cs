@@ -57,6 +57,10 @@ namespace MagicZones
     internal sealed class AppConfig
     {
         public bool Enabled = true;
+        /// <summary>"popup": mini-map popup above the dragged window. "overlay": zones drawn full screen.</summary>
+        public string Mode = "popup";
+        /// <summary>Popup width in logical px (scaled by the monitor DPI).</summary>
+        public int PopupWidth = 460;
         /// <summary>"always": zones appear on every drag (hold Shift to skip). "shift": only while Shift is held.</summary>
         public string Activation = "always";
         public bool ThrowEnabled = true;
@@ -71,6 +75,7 @@ namespace MagicZones
         public bool Hotkeys = true;
         public string AccentColor = "#3B82F6";
         public string ThrowColor = "#F97316";
+        public bool DebugLog;
         public List<string> ExcludedProcesses = new List<string>();
         public List<MonitorLayout> Layouts = new List<MonitorLayout>();
 
@@ -90,6 +95,8 @@ namespace MagicZones
                 if (root == null) return cfg;
 
                 cfg.Enabled = Json.Get(root, "enabled", cfg.Enabled);
+                cfg.Mode = Json.Get(root, "mode", cfg.Mode) == "overlay" ? "overlay" : "popup";
+                cfg.PopupWidth = Math.Max(260, Math.Min(1200, Json.Get(root, "popupWidth", cfg.PopupWidth)));
                 cfg.Activation = Json.Get(root, "activation", cfg.Activation);
                 cfg.ThrowEnabled = Json.Get(root, "throwEnabled", cfg.ThrowEnabled);
                 cfg.ThrowMinSpeed = Json.Get(root, "throwMinSpeed", cfg.ThrowMinSpeed);
@@ -101,6 +108,7 @@ namespace MagicZones
                 cfg.Hotkeys = Json.Get(root, "hotkeys", cfg.Hotkeys);
                 cfg.AccentColor = Json.Get(root, "accentColor", cfg.AccentColor);
                 cfg.ThrowColor = Json.Get(root, "throwColor", cfg.ThrowColor);
+                cfg.DebugLog = Json.Get(root, "debugLog", false);
 
                 if (Json.Get<List<object>>(root, "excludedProcesses", null) is List<object> ex)
                     cfg.ExcludedProcesses = ex.OfType<string>().ToList();
@@ -141,6 +149,8 @@ namespace MagicZones
             var root = new Dictionary<string, object>
             {
                 ["enabled"] = Enabled,
+                ["mode"] = Mode,
+                ["popupWidth"] = PopupWidth,
                 ["activation"] = Activation,
                 ["throwEnabled"] = ThrowEnabled,
                 ["throwMinSpeed"] = ThrowMinSpeed,
@@ -152,6 +162,7 @@ namespace MagicZones
                 ["hotkeys"] = Hotkeys,
                 ["accentColor"] = AccentColor,
                 ["throwColor"] = ThrowColor,
+                ["debugLog"] = DebugLog,
                 ["excludedProcesses"] = ExcludedProcesses.Cast<object>().ToList(),
                 ["layouts"] = Layouts.Select(l => (object)new Dictionary<string, object>
                 {

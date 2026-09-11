@@ -68,6 +68,40 @@ namespace MagicZones
             }
         }
 
+        private void FreeSurface()
+        {
+            surface?.Dispose();
+            surface = null;
+            if (memDc != IntPtr.Zero)
+            {
+                Native.SelectObject(memDc, oldBitmap);
+                Native.DeleteDC(memDc);
+                memDc = IntPtr.Zero;
+            }
+            if (dib != IntPtr.Zero) Native.DeleteObject(dib);
+            dib = IntPtr.Zero;
+        }
+
+        /// <summary>Move/resize. Takes effect on the next Render (UpdateLayeredWindow positions the window).</summary>
+        public void SetBounds(Rectangle bounds)
+        {
+            if (disposed || bounds.Width <= 0 || bounds.Height <= 0) return;
+            bool resized = bounds.Size != Bounds.Size;
+            Bounds = bounds;
+            if (resized)
+            {
+                FreeSurface();
+                AllocateSurface();
+            }
+        }
+
+        public void BringToFront()
+        {
+            if (disposed || !Visible) return;
+            Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0,
+                Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        }
+
         /// <summary>Redraw the whole surface and push it to the screen.</summary>
         protected void Render(Action<Graphics> draw)
         {
@@ -158,13 +192,7 @@ namespace MagicZones
         {
             if (disposed) return;
             disposed = true;
-            surface?.Dispose();
-            if (memDc != IntPtr.Zero)
-            {
-                Native.SelectObject(memDc, oldBitmap);
-                Native.DeleteDC(memDc);
-            }
-            if (dib != IntPtr.Zero) Native.DeleteObject(dib);
+            FreeSurface();
             DestroyHandle();
         }
 

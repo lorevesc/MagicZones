@@ -10,6 +10,8 @@ namespace MagicZones
     {
         public HashSet<Zone> Hover = new HashSet<Zone>();
         public Zone ThrowTarget;
+        /// <summary>Popup mode: draw only the destination ("ghost" preview), not every zone.</summary>
+        public bool OnlyActive;
     }
 
     /// <summary>One click-through overlay per monitor, shown while a window is being dragged.</summary>
@@ -113,9 +115,13 @@ namespace MagicZones
         public void Update(OverlayState state, bool force)
         {
             var mine = zones.ZonesOn(monitor).ToList();
+            // "Whole monitor" pseudo-zones (monitors without zones) only exist while hovered.
+            foreach (var h in state.Hover)
+                if (h.Monitor == monitor && !mine.Contains(h)) mine.Add(h);
             // Redraw only when something on *this* monitor changed: full-screen GDI+ isn't free.
             string sig = string.Join(",", mine.Where(z => state.Hover.Contains(z)).Select(z => z.Number))
-                         + "|" + (state.ThrowTarget != null && state.ThrowTarget.Monitor == monitor ? state.ThrowTarget.Number : 0);
+                         + "|" + (state.ThrowTarget != null && state.ThrowTarget.Monitor == monitor ? state.ThrowTarget.Number : 0)
+                         + "|" + state.OnlyActive;
             if (!force && sig == lastSignature) return;
             lastSignature = sig;
             Render(g => Draw(g, mine, state));
@@ -142,6 +148,7 @@ namespace MagicZones
                     r.Offset(-origin.X, -origin.Y);
                     bool isThrow = state.ThrowTarget == z;
                     bool isHover = state.Hover.Contains(z) && !spanning;
+                    if (state.OnlyActive && !isHover && !isThrow) continue;
                     DrawZone(g, r, z, s, isThrow ? throwC : accent, isHover || isThrow, isThrow, numberFont, smallFont, labelFont);
                 }
 
@@ -176,7 +183,7 @@ namespace MagicZones
                 }
             }
 
-            string number = z.Number.ToString();
+            string number = z.Number > 0 ? z.Number.ToString() : "Monitor " + z.Monitor.Number;
             string kind = z.Kind == ZoneKind.Snap ? null : ZoneDef.KindLabel(z.Kind);
             if (isThrow) kind = "LANCIO";
             var textColor = active ? Color.FromArgb(240, 255, 255, 255) : Color.FromArgb(130, 255, 255, 255);

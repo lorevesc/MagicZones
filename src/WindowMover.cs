@@ -56,6 +56,7 @@ namespace MagicZones
         /// <summary>Put the window into a zone (or zone span). Handles snap / maximize / minimize.</summary>
         public void Apply(IntPtr hwnd, ZoneKind kind, Rectangle target, bool animate, Size preDragSize)
         {
+            Log.Debug($"apply {hwnd} {kind} -> {target}");
             CancelAnimation(hwnd);
             switch (kind)
             {
@@ -78,20 +79,52 @@ namespace MagicZones
             if (!resizable) target = CenterIn(target, from.Size);
             RememberOriginal(hwnd, preDragSize);
 
+            // Only a DPI change makes apps resize themselves after we place them; otherwise no re-apply.
+            bool crossDpi = DpiAt(Geometry.Center(from)) != DpiAt(Geometry.Center(target));
+
             if (animate && config.Animate && config.AnimationMs > 0)
             {
+                // Resize once, up front, then fly by pure translation: resizing every frame forces the
+                // app to relayout/repaint each step, which is what makes the content wobble.
+                // (Across a DPI change the app resizes itself anyway, so leave the size to the end.)
+                var start = from;
+                if (resizable && !crossDpi)
+                {
+                    var c = Geometry.Center(from);
+                    start = new Rectangle(c.X - target.Width / 2, c.Y - target.Height / 2, target.Width, target.Height);
+                    PlaceVisible(hwnd, start, resize: true, async: false);
+                }
+
+                // Long launches (other monitor) fly a bit longer, so the eye can follow them.
+                var a = Geometry.Center(start);
+                var b = Geometry.Center(target);
+                double dist = Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2));
+                int ms = config.AnimationMs + (int)Math.Min(dist * 0.06, config.AnimationMs * 1.2);
                 anim = new Animation
                 {
-                    Hwnd = hwnd, From = from, To = target, Resizable = resizable,
-                    DurationMs = config.AnimationMs, Clock = Stopwatch.StartNew(),
-                    Done = () => Finish(hwnd, target, resizable),
+                    Hwnd = hwnd, From = start, To = target, Resizable = false,
+                    DurationMs = ms, Clock = Stopwatch.StartNew(),
+                    Done = () => Finish(hwnd, target, resizable, crossDpi),
                 };
                 animTimer.Start();
                 AnimStep();
             }
             else
             {
-                Finish(hwnd, target, resizable);
+                Finish(hwnd, target, resizable, crossDpi);
+            }
+        }
+
+        private static int DpiAt(Point p)
+        {
+            try
+            {
+                var mon = Native.MonitorFromPoint(new Native.POINT(p.X, p.Y), 2 /* MONITOR_DEFAULTTONEAREST */);
+                return Native.GetDpiForMonitor(mon, 0, out uint dx, out _) == 0 ? (int)dx : 96;
+            }
+            catch
+            {
+                return 96;
             }
         }
 
@@ -101,6 +134,7 @@ namespace MagicZones
             if (!config.RestoreSizeOnUnsnap || !originalSizes.TryGetValue(hwnd, out var size)) return;
             originalSizes.Remove(hwnd);
             if (!IsResizable(hwnd) || Native.IsZoomed(hwnd) || Native.IsIconic(hwnd)) return;
+            Log.Debug($"restore size {hwnd} -> {size}");
 
             var cur = Native.VisibleRect(hwnd);
             if (cur.Width <= 0) return;
@@ -111,11 +145,14 @@ namespace MagicZones
             PlaceVisible(hwnd, new Rectangle(x, y, size.Width, size.Height), resize: true, async: false);
         }
 
-        private void Finish(IntPtr hwnd, Rectangle target, bool resizable)
+        private void Finish(IntPtr hwnd, Rectangle target, bool resizable, bool crossDpi)
         {
             PlaceVisible(hwnd, target, resizable, async: false);
-            // Crossing a DPI boundary makes apps resize themselves on WM_DPICHANGED; re-apply a few times.
             settles.RemoveAll(x => x.Hwnd == hwnd);
+            // Crossing a DPI boundary makes apps resize themselves on WM_DPICHANGED; re-apply a few times.
+            // Same-DPI moves don't need it, and re-applying against apps that round their own size
+            // (terminals, fixed-step windows) would just make them jitter.
+            if (!crossDpi) return;
             settles.Add(new Settle { Hwnd = hwnd, Target = target, Resizable = resizable, Clock = Stopwatch.StartNew() });
             settleTimer.Start();
         }
@@ -154,8 +191,20 @@ namespace MagicZones
                 a.Done();
                 return;
             }
-            var r = Geometry.Lerp(a.From, a.To, Geometry.EaseOutBack(t));
+            // Fast launch, soft landing, no overshoot.
+            var r = Geometry.Lerp(a.From, a.To, Geometry.EaseOutQuart(t));
             PlaceVisible(a.Hwnd, r, a.Resizable, async: true);
+        }
+
+        /// <summary>User grabbed the window: stop flying/settling it, or we'd fight the drag.</summary>
+        public void Release(IntPtr hwnd)
+        {
+            if (anim != null && anim.Hwnd == hwnd)
+            {
+                anim = null;
+                animTimer.Stop();
+            }
+            settles.RemoveAll(x => x.Hwnd == hwnd);
         }
 
         private void CancelAnimation(IntPtr hwnd)

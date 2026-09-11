@@ -19,6 +19,7 @@ namespace MagicZones
         private readonly ZoneManager zones;
         private readonly OverlayManager overlay;
         private readonly WindowMover mover;
+        private readonly PopupWindow popup;
         private readonly DragTracker tracker;
         private readonly NotifyIcon tray;
         private readonly MessageWindow messages;
@@ -28,7 +29,7 @@ namespace MagicZones
         private EditorSession editor;
         private Icon iconOn, iconOff;
 
-        private ToolStripMenuItem miEnabled, miAlways, miShift, miThrow, miAnimate, miStartup, miGap;
+        private ToolStripMenuItem miEnabled, miAlways, miShift, miThrow, miAnimate, miStartup, miGap, miPopup, miOverlay;
 
         public TrayApp()
         {
@@ -36,6 +37,7 @@ namespace MagicZones
 
             bool firstRun = !File.Exists(AppConfig.FilePath);
             config = AppConfig.Load(out string loadError);
+            Log.Verbose = config.DebugLog;
             zones = new ZoneManager(config);
             zones.Rebuild();
             if (config.EnsureDefaults(zones.Monitors))
@@ -47,7 +49,8 @@ namespace MagicZones
             overlay = new OverlayManager(config, zones);
             overlay.Rebuild();
             mover = new WindowMover(config);
-            tracker = new DragTracker(config, zones, overlay, mover);
+            popup = new PopupWindow(config, zones);
+            tracker = new DragTracker(config, zones, overlay, mover, popup);
             tracker.Start();
 
             iconOn = IconArt.CreateIcon(32, true);
@@ -70,8 +73,8 @@ namespace MagicZones
                     "Uso le impostazioni di default. Errore: " + loadError, ToolTipIcon.Warning);
             else if (firstRun)
                 tray.ShowBalloonTip(6000, "MagicZones è attivo",
-                    "Trascina una finestra: appaiono le zone. Lanciala veloce per scagliarla in una zona. " +
-                    "Doppio clic sull'icona per disegnare le tue zone.", ToolTipIcon.Info);
+                    "Trascina una finestra: sopra appare la mini-mappa. Rilascia su una zona e la finestra ci vola, " +
+                    "anche sull'altro monitor. Doppio clic sull'icona per disegnare le tue zone.", ToolTipIcon.Info);
         }
 
         // ---- Menu -------------------------------------------------------------------------
@@ -89,14 +92,21 @@ namespace MagicZones
                 { ShortcutKeyDisplayString = "Ctrl+Alt+Win+Z", Font = new Font(menu.Font, FontStyle.Bold) });
             menu.Items.Add(new ToolStripSeparator());
 
-            var show = new ToolStripMenuItem("Mostra zone quando trascini");
-            miAlways = new ToolStripMenuItem("Sempre (tieni Shift per ignorarle)", null, (s, e) => SetActivation("always"));
+            var mode = new ToolStripMenuItem("Modalità");
+            miPopup = new ToolStripMenuItem("Popup sopra la finestra (mini-mappa)", null, (s, e) => SetMode("popup"));
+            miOverlay = new ToolStripMenuItem("Zone a tutto schermo", null, (s, e) => SetMode("overlay"));
+            mode.DropDownItems.Add(miPopup);
+            mode.DropDownItems.Add(miOverlay);
+            menu.Items.Add(mode);
+
+            var show = new ToolStripMenuItem("Quando trascini");
+            miAlways = new ToolStripMenuItem("Sempre (tieni Shift per ignorare)", null, (s, e) => SetActivation("always"));
             miShift = new ToolStripMenuItem("Solo tenendo premuto Shift", null, (s, e) => SetActivation("shift"));
             show.DropDownItems.Add(miAlways);
             show.DropDownItems.Add(miShift);
             menu.Items.Add(show);
 
-            miThrow = new ToolStripMenuItem("Lancio delle finestre (fling)", null, (s, e) =>
+            miThrow = new ToolStripMenuItem("Lancio a scatto (solo tutto schermo)", null, (s, e) =>
             {
                 config.ThrowEnabled = !config.ThrowEnabled;
                 TrySave();
@@ -146,6 +156,9 @@ namespace MagicZones
         private void RefreshMenu()
         {
             miEnabled.Checked = config.Enabled;
+            miPopup.Checked = config.Mode != "overlay";
+            miOverlay.Checked = config.Mode == "overlay";
+            miThrow.Enabled = config.Mode == "overlay";
             miAlways.Checked = config.Activation != "shift";
             miShift.Checked = config.Activation == "shift";
             miThrow.Checked = config.ThrowEnabled;
@@ -160,6 +173,13 @@ namespace MagicZones
         {
             config.Enabled = on;
             if (!on) overlay.HideNow();
+            TrySave();
+            RefreshMenu();
+        }
+
+        private void SetMode(string mode)
+        {
+            config.Mode = mode;
             TrySave();
             RefreshMenu();
         }
@@ -191,6 +211,8 @@ namespace MagicZones
             }
             // Copy into the live instance: every component holds a reference to it.
             config.Enabled = fresh.Enabled;
+            config.Mode = fresh.Mode;
+            config.PopupWidth = fresh.PopupWidth;
             config.Activation = fresh.Activation;
             config.ThrowEnabled = fresh.ThrowEnabled;
             config.ThrowMinSpeed = fresh.ThrowMinSpeed;
@@ -202,6 +224,8 @@ namespace MagicZones
             config.Hotkeys = fresh.Hotkeys;
             config.AccentColor = fresh.AccentColor;
             config.ThrowColor = fresh.ThrowColor;
+            config.DebugLog = fresh.DebugLog;
+            Log.Verbose = fresh.DebugLog;
             config.ExcludedProcesses = fresh.ExcludedProcesses;
             config.Layouts = fresh.Layouts;
             RegisterHotkeys();
@@ -317,6 +341,7 @@ namespace MagicZones
             for (int id = HK_EDITOR; id <= HK_DOWN; id++) Native.UnregisterHotKey(messages.Handle, id);
             editor?.Dispose();
             tracker.Dispose();
+            popup.Dispose();
             overlay.Dispose();
             mover.Dispose();
             rebuildTimer.Dispose();
