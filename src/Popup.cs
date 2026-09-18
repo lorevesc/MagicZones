@@ -134,8 +134,12 @@ namespace MagicZones
             new Point(Bounds.X + (int)(t.Rect.X + t.Rect.Width / 2), Bounds.Y + (int)(t.Rect.Y + t.Rect.Height / 2))));
 
         // ---- Show / hide ---------------------------------------------------------------------------
-        public void Open(Point cursor, Rectangle windowRect, OverlayState state)
+        /// <summary>Set while dragging a window we can't move (admin/SYSTEM app): name of that app.</summary>
+        public string LockedApp { get; set; }
+
+        public void Open(Point cursor, Rectangle windowRect, OverlayState state, string lockedApp = null)
         {
+            LockedApp = lockedApp;
             Layout(cursor, windowRect);
             Update(state, windowRect, cursor, force: true);
             IsOpen = true;
@@ -228,13 +232,27 @@ namespace MagicZones
             using (var dot = new SolidBrush(accent))
             {
                 float hy = panel.Y + 17 * s;
-                g.FillEllipse(dot, panel.X + 14 * s, hy - 4 * s, 8 * s, 8 * s);
-                string text = state.Hover.Count > 1 ? $"Unisci {state.Hover.Count} zone" : "Lancia su…";
-                var sfL = new StringFormat { LineAlignment = StringAlignment.Center };
+                var sfL = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
                 var sfR = new StringFormat { LineAlignment = StringAlignment.Center, Alignment = StringAlignment.Far };
-                g.DrawString(text, title, titleBrush, new PointF(panel.X + 28 * s, hy), sfL);
-                g.DrawString("Ctrl unisci · Shift chiudi", hint, hintBrush,
-                    new RectangleF(panel.X, hy - 10 * s, panel.Width - 14 * s, 20 * s), sfR);
+                if (LockedApp != null)
+                {
+                    using (var warn = new SolidBrush(Color.FromArgb(255, 250, 204, 21)))
+                    {
+                        g.FillEllipse(warn, panel.X + 14 * s, hy - 4 * s, 8 * s, 8 * s);
+                        string why = Integrity.IsElevated
+                            ? $"{LockedApp}: Windows non la lascia spostare"
+                            : $"{LockedApp}: serve MagicZones da amministratore";
+                        g.DrawString(why, title, warn, new RectangleF(panel.X + 28 * s, hy - 10 * s, panel.Width - 40 * s, 20 * s), sfL);
+                    }
+                }
+                else
+                {
+                    g.FillEllipse(dot, panel.X + 14 * s, hy - 4 * s, 8 * s, 8 * s);
+                    string text = state.Hover.Count > 1 ? $"Unisci {state.Hover.Count} zone" : "Lancia su…";
+                    g.DrawString(text, title, titleBrush, new PointF(panel.X + 28 * s, hy), sfL);
+                    g.DrawString("Ctrl unisci · Shift chiudi", hint, hintBrush,
+                        new RectangleF(panel.X, hy - 10 * s, panel.Width - 14 * s, 20 * s), sfR);
+                }
             }
 
             // Monitors
@@ -254,8 +272,9 @@ namespace MagicZones
                 foreach (var t in tiles)
                 {
                     bool hot = state.Hover.Contains(t.Zone);
+                    var idle = LockedApp != null ? Color.FromArgb(255, 30, 33, 42) : Color.FromArgb(255, 44, 50, 66);
                     using (var path = Geometry.RoundedRect(t.Rect, 4 * s))
-                    using (var fill = new SolidBrush(hot ? Geometry.WithAlpha(accent, 245) : Color.FromArgb(255, 44, 50, 66)))
+                    using (var fill = new SolidBrush(hot ? Geometry.WithAlpha(accent, 245) : idle))
                     using (var pen = new Pen(hot ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(40, 255, 255, 255), (hot ? 1.6f : 1f) * s))
                     {
                         g.FillPath(fill, path);

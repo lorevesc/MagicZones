@@ -35,6 +35,10 @@ namespace MagicZones
         private bool resizing;
         private bool startZoomed;         // maximized when grabbed
         private bool startOnFrame;        // grabbed on the resize border rather than the title bar
+        private bool locked;              // higher-integrity window (admin/SYSTEM): Windows won't let us move it
+
+        /// <summary>User tried to launch a window we're not allowed to move.</summary>
+        public event Action<IntPtr> Blocked;
 
         public DragTracker(AppConfig config, ZoneManager zones, OverlayManager overlay, WindowMover mover, PopupWindow popup)
         {
@@ -100,7 +104,9 @@ namespace MagicZones
             startRect = Native.WindowRect(hwnd);
             startZoomed = Native.IsZoomed(hwnd);
             startOnFrame = IsOnFrame(hwnd, Native.CursorPos());
-            Log.Debug($"drag begin {hwnd} rect={startRect} zoomed={startZoomed} onFrame={startOnFrame} cursor={Native.CursorPos()}");
+            var control = Integrity.CanControl(hwnd);
+            locked = control == false;
+            Log.Debug($"drag begin {hwnd} rect={startRect} zoomed={startZoomed} onFrame={startOnFrame} control={(control?.ToString() ?? "unknown")} cursor={Native.CursorPos()}");
             startVisibleSize = Native.VisibleRect(hwnd).Size;
             moving = resizing = false;
             state.Hover.Clear();
@@ -189,7 +195,13 @@ namespace MagicZones
             var windowRect = Native.VisibleRect(dragHwnd);
             state.ThrowTarget = null;
             state.OnlyActive = true;
-            if (!popup.IsOpen) popup.Open(cursor, windowRect, state);
+            if (!popup.IsOpen) popup.Open(cursor, windowRect, state, locked ? Integrity.ProcessName(dragHwnd) : null);
+            if (locked)
+            {
+                // Can't move it: the popup explains why, no highlight or destination preview.
+                popup.Update(state, windowRect, cursor);
+                return;
+            }
 
             var hit = popup.HitTest(cursor);
             if (!ctrl) state.Hover.Clear();
@@ -238,7 +250,11 @@ namespace MagicZones
             if (PopupMode)
             {
                 // Launch only when released on a tile; anywhere else it's a normal move.
-                if (active && popupHit != null)
+                if (active && popupHit != null && locked)
+                {
+                    Blocked?.Invoke(hwnd);
+                }
+                else if (active && popupHit != null)
                 {
                     var targets = ctrl && state.Hover.Count > 1 && state.Hover.Contains(popupHit)
                         ? state.Hover.ToList() : new List<Zone> { popupHit };
@@ -252,6 +268,12 @@ namespace MagicZones
             if (!active || !overlayWasOn)
             {
                 mover.RestoreIfSnapped(hwnd, cursor);
+                return;
+            }
+
+            if (locked)
+            {
+                if (zones.HitTest(cursor) != null) Blocked?.Invoke(hwnd);
                 return;
             }
 

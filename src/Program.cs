@@ -24,6 +24,23 @@ namespace MagicZones
             }
             if (args.Length == 1 && args[0] == "--selftest")
                 return SelfTest.Run();
+            if (args.Length == 2 && args[0] == "--probe" && long.TryParse(args[1], out long probe))
+            {
+                // Diagnostics: can we move this window? (MagicZones.exe --probe <hwnd> | Out-String)
+                var h = new IntPtr(probe);
+                Console.WriteLine($"{Integrity.ProcessName(h)}: canControl={Integrity.CanControl(h)?.ToString() ?? "unknown"} selfElevated={Integrity.IsElevated}");
+                return 0;
+            }
+
+            // "Riavvia come amministratore": the old instance is exiting, wait for it to let go.
+            if (args.Length == 2 && args[0] == "--replace" && int.TryParse(args[1], out int oldPid))
+            {
+                try
+                {
+                    using (var old = System.Diagnostics.Process.GetProcessById(oldPid)) old.WaitForExit(8000);
+                }
+                catch (ArgumentException) { } // already gone
+            }
 
             using (var mutex = new Mutex(true, @"Local\MagicZones.SingleInstance", out bool first))
             {
@@ -94,6 +111,11 @@ namespace MagicZones
                 state.Hover.Add(far);
                 popup.Update(state, win, cursor, force: true);
                 popup.SaveSnapshot(System.IO.Path.Combine(dir, "popup-hover.png"));
+
+                state.Hover.Clear();
+                popup.LockedApp = "Supremo";
+                popup.Update(state, win, cursor, force: true);
+                popup.SaveSnapshot(System.IO.Path.Combine(dir, "popup-locked.png"));
             }
 
             var session = new EditorSession(config, zones.Monitors, _ => { }, show: false);

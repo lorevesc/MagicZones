@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MagicZones - plain .NET Framework 4.8 WinForms exe (in-box on Windows 10/11).
+  Classic MSBuild project (no .NET SDK required): build with Visual Studio's MSBuild, see build.ps1.
+-->
+<Project ToolsVersion="Current" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{6F0E5A2C-3B8D-4E71-9C4A-2D5B7E91A0C3}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>MagicZones</RootNamespace>
+    <AssemblyName>MagicZones</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>assets\MagicZones.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+
+    <!-- Identity: ends up in the exe's version resource (Properties > Details). -->
+    <Product>MagicZones</Product>
+    <Company>lorenzo</Company>
+    <AssemblyTitle>MagicZones - zone magiche multi-monitor</AssemblyTitle>
+    <Description>Aggancia e lancia le finestre su zone configurabili, su tutti i monitor.</Description>
+    <Copyright>Copyright (c) 2026 lorenzo</Copyright>
+    <NeutralLanguage>it-IT</NeutralLanguage>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+
+    <!-- A plain IL assembly: no single-file bundle, no compression, no packer, no obfuscator.
+         (These two only matter for .NET 6+ single-file publishing; pinned off on purpose.) -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+
+    <!-- Without the .NET Framework 4.8 targeting pack, compile against the runtime assemblies
+         that ship with Windows (same API surface for 4.8). -->
+    <FrameworkPathOverride Condition="!Exists('$(MSBuildProgramFiles32)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\mscorlib.dll')">$(WINDIR)\Microsoft.NET\Framework64\v4.0.30319</FrameworkPathOverride>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <DefineConstants>TRACE</DefineConstants>
+    <OutputPath>bin\Release\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <Optimize>false</Optimize>
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <OutputPath>bin\Debug\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="src\*.cs" />
+    <None Include="App.config" />
+    <None Include="app.manifest" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
+  <!-- Classic projects don't turn Product/Company/Version into attributes by themselves:
+       generate them (what the .NET SDK does automatically). -->
+  <Target Name="GenerateAssemblyIdentity" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_IdentityAttribute Include="System.Reflection.AssemblyProductAttribute"><_Parameter1>$(Product)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyCompanyAttribute"><_Parameter1>$(Company)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyTitleAttribute"><_Parameter1>$(AssemblyTitle)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyDescriptionAttribute"><_Parameter1>$(Description)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyCopyrightAttribute"><_Parameter1>$(Copyright)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyVersionAttribute"><_Parameter1>$(AssemblyVersion)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyFileVersionAttribute"><_Parameter1>$(FileVersion)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Reflection.AssemblyInformationalVersionAttribute"><_Parameter1>$(Version)</_Parameter1></_IdentityAttribute>
+      <_IdentityAttribute Include="System.Resources.NeutralResourcesLanguageAttribute"><_Parameter1>$(NeutralLanguage)</_Parameter1></_IdentityAttribute>
+    </ItemGroup>
+    <WriteCodeFragment Language="C#" OutputFile="$(IntermediateOutputPath)AssemblyIdentity.g.cs" AssemblyAttributes="@(_IdentityAttribute)" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)AssemblyIdentity.g.cs" />
+      <FileWrites Include="$(IntermediateOutputPath)AssemblyIdentity.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

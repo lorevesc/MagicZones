@@ -13,7 +13,6 @@ namespace MagicZones
         public static readonly uint OpenEditorMessage = Native.RegisterWindowMessage("MagicZones.OpenEditor");
 
         private const int HK_EDITOR = 1, HK_LEFT = 2, HK_UP = 3, HK_RIGHT = 4, HK_DOWN = 5;
-        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
         private readonly AppConfig config;
         private readonly ZoneManager zones;
@@ -51,6 +50,8 @@ namespace MagicZones
             mover = new WindowMover(config);
             popup = new PopupWindow(config, zones);
             tracker = new DragTracker(config, zones, overlay, mover, popup);
+            tracker.Blocked += OnBlocked;
+            mover.AccessDenied += OnBlocked;
             tracker.Start();
 
             iconOn = IconArt.CreateIcon(32, true);
@@ -63,7 +64,7 @@ namespace MagicZones
             RegisterHotkeys();
 
             rebuildTimer.Tick += (s, e) => { rebuildTimer.Stop(); RebuildMonitors(); };
-            pruneTimer.Tick += (s, e) => mover.Prune();
+            pruneTimer.Tick += (s, e) => { mover.Prune(); Integrity.ClearCache(); };
             pruneTimer.Start();
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
@@ -81,7 +82,7 @@ namespace MagicZones
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            var title = new ToolStripMenuItem("MagicZones") { Enabled = false };
+            var title = new ToolStripMenuItem(Integrity.IsElevated ? "MagicZones (amministratore)" : "MagicZones") { Enabled = false };
             title.Font = new Font(title.Font, FontStyle.Bold);
             menu.Items.Add(title);
             menu.Items.Add(new ToolStripSeparator());
@@ -139,10 +140,16 @@ namespace MagicZones
 
             miStartup = new ToolStripMenuItem("Avvia con Windows", null, (s, e) => ToggleStartup());
             menu.Items.Add(miStartup);
+            if (!Integrity.IsElevated)
+                menu.Items.Add(new ToolStripMenuItem("Riavvia come amministratore", null, (s, e) => RestartElevated())
+                    { ToolTipText = "Serve per spostare le finestre delle app avviate come amministratore" });
+            menu.Items.Add(new ToolStripMenuItem("Riavvia MagicZones", null, (s, e) => Restart())
+                { ToolTipText = "Carica la versione appena compilata, con gli stessi privilegi" });
             menu.Items.Add(new ToolStripMenuItem("Apri cartella configurazione", null, (s, e) =>
             {
                 Directory.CreateDirectory(AppConfig.Folder);
-                Process.Start("explorer.exe", "\"" + AppConfig.Folder + "\"");
+                // Let the shell open the folder (no explicit explorer.exe child process).
+                Process.Start(new ProcessStartInfo(AppConfig.Folder) { UseShellExecute = true });
             }));
             menu.Items.Add(new ToolStripMenuItem("Ricarica configurazione", null, (s, e) => ReloadConfig()));
             menu.Items.Add(new ToolStripSeparator());
@@ -163,7 +170,7 @@ namespace MagicZones
             miShift.Checked = config.Activation == "shift";
             miThrow.Checked = config.ThrowEnabled;
             miAnimate.Checked = config.Animate;
-            miStartup.Checked = IsStartupEnabled();
+            miStartup.Checked = Startup.IsEnabledFor(Application.ExecutablePath);
             foreach (ToolStripMenuItem item in miGap.DropDownItems) item.Checked = (int)item.Tag == config.Gap;
             tray.Icon = config.Enabled ? iconOn : iconOff;
             tray.Text = config.Enabled ? "MagicZones — attivo" : "MagicZones — in pausa";
@@ -302,33 +309,105 @@ namespace MagicZones
             var rect = Native.VisibleRect(hwnd);
             var target = zones.Neighbour(rect, dx, dy);
             if (target == null) return;
+            if (Integrity.CanControl(hwnd) == false) { OnBlocked(hwnd); return; }
             mover.Apply(hwnd, target.Kind, zones.TargetRect(target), animate: true, rect.Size);
         }
 
-        // ---- Startup ------------------------------------------------------------------------
-        private static bool IsStartupEnabled()
+        // ---- Admin windows ----------------------------------------------------------------------
+        private readonly System.Collections.Generic.Dictionary<string, DateTime> blockedNotified =
+            new System.Collections.Generic.Dictionary<string, DateTime>();
+
+        private void OnBlocked(IntPtr hwnd)
         {
-            try
-            {
-                using (var k = Registry.CurrentUser.OpenSubKey(RunKey))
-                    return k?.GetValue("MagicZones") is string v && v.IndexOf(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase) >= 0;
-            }
-            catch { return false; }
+            string app = Integrity.ProcessName(hwnd);
+            if (blockedNotified.TryGetValue(app, out var last) && (DateTime.UtcNow - last).TotalSeconds < 20) return;
+            blockedNotified[app] = DateTime.UtcNow;
+            if (Integrity.IsElevated)
+                tray.ShowBalloonTip(6000, "MagicZones non può spostare " + app,
+                    app + " gira con privilegi di sistema: Windows non permette a nessun'altra app di spostare le sue finestre.",
+                    ToolTipIcon.Warning);
+            else
+                tray.ShowBalloonTip(8000, app + " è avviato come amministratore",
+                    "Windows non lascia spostare le sue finestre a un'app normale. Clic destro sull'icona di MagicZones → " +
+                    "\"Riavvia come amministratore\".", ToolTipIcon.Warning);
         }
 
-        private void ToggleStartup()
+        /// <summary>Relaunch with the same privileges (the child inherits our token, no UAC).</summary>
+        private void Restart()
         {
             try
             {
-                using (var k = Registry.CurrentUser.OpenSubKey(RunKey, writable: true) ?? Registry.CurrentUser.CreateSubKey(RunKey))
+                Process.Start(new ProcessStartInfo(Application.ExecutablePath, "--replace " + Process.GetCurrentProcess().Id)
+                    { UseShellExecute = false });
+            }
+            catch (Exception e)
+            {
+                tray.ShowBalloonTip(4000, "MagicZones", "Riavvio non riuscito: " + e.Message, ToolTipIcon.Error);
+                return;
+            }
+            ExitThread();
+        }
+
+        private void RestartElevated()
+        {
+            try
+            {
+                var psi = new ProcessStartInfo(Application.ExecutablePath, "--replace " + Process.GetCurrentProcess().Id)
                 {
-                    if (IsStartupEnabled()) k.DeleteValue("MagicZones", false);
-                    else k.SetValue("MagicZones", "\"" + Application.ExecutablePath + "\"");
+                    Verb = "runas",
+                    UseShellExecute = true,
+                };
+                Process.Start(psi);
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return; // UAC prompt cancelled: keep running as we are
+            }
+            ExitThread();
+        }
+
+        // ---- Startup ------------------------------------------------------------------------
+        /// <summary>
+        /// Toggle the HKCU Run value. Only from an installed copy: the app never copies itself around
+        /// or writes autostart for a Desktop/OneDrive/Downloads path; installing is the setup's job.
+        /// </summary>
+        private void ToggleStartup()
+        {
+            string exe = Application.ExecutablePath;
+            try
+            {
+                if (Startup.IsEnabledFor(exe))
+                {
+                    Startup.Disable();
+                }
+                else if (Startup.IsStableLocation(exe))
+                {
+                    Startup.Enable(exe); // also replaces a stale entry pointing at an old copy
+                }
+                else
+                {
+                    string stale = Startup.Target;
+                    string text =
+                        "L'avvio automatico si attiva solo dalla versione installata.\n\n" +
+                        "Questa copia gira da:\n" + Path.GetDirectoryName(exe) + "\n\n" +
+                        "Installa MagicZones con MagicZones-Setup.exe (va in " + Startup.InstallDir + ", " +
+                        "senza diritti di amministratore) e spunta \"Avvia con Windows\" durante l'installazione " +
+                        "o dal menu della copia installata.";
+                    if (stale != null)
+                    {
+                        text += "\n\nC'è già un avvio automatico che punta a:\n" + stale + "\n\nRimuoverlo?";
+                        if (MessageBox.Show(text, "MagicZones", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                            Startup.Disable();
+                    }
+                    else
+                    {
+                        MessageBox.Show(text, "MagicZones", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                 }
             }
             catch (Exception e)
             {
-                tray.ShowBalloonTip(4000, "MagicZones", "Impossibile modificare l'avvio automatico: " + e.Message, ToolTipIcon.Error);
+                tray.ShowBalloonTip(5000, "MagicZones", "Impossibile modificare l'avvio automatico: " + e.Message, ToolTipIcon.Error);
             }
             RefreshMenu();
         }
@@ -364,6 +443,8 @@ namespace MagicZones
             {
                 this.app = app;
                 CreateHandle(new CreateParams { Caption = "MagicZones.Messages" });
+                // When elevated, still accept "open editor" from a normal second instance (UIPI filters it otherwise).
+                if (OpenEditorMessage != 0) Native.ChangeWindowMessageFilterEx(Handle, OpenEditorMessage, 1 /* MSGFLT_ALLOW */, IntPtr.Zero);
             }
 
             protected override void WndProc(ref Message m)

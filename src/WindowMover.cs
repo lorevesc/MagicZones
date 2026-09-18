@@ -54,10 +54,23 @@ namespace MagicZones
         public void ForgetOriginal(IntPtr hwnd) => originalSizes.Remove(hwnd);
 
         /// <summary>Put the window into a zone (or zone span). Handles snap / maximize / minimize.</summary>
+        /// <summary>Windows refused to move the window (UIPI: it belongs to a higher-privilege process).</summary>
+        public event Action<IntPtr> AccessDenied;
+
         public void Apply(IntPtr hwnd, ZoneKind kind, Rectangle target, bool animate, Size preDragSize)
         {
             Log.Debug($"apply {hwnd} {kind} -> {target}");
             CancelAnimation(hwnd);
+
+            // No-op SetWindowPos as a permission probe: UIPI rejects it with ERROR_ACCESS_DENIED.
+            if (!Native.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE | Native.SWP_NOOWNERZORDER)
+                && System.Runtime.InteropServices.Marshal.GetLastWin32Error() == 5)
+            {
+                Log.Debug($"access denied {hwnd}");
+                AccessDenied?.Invoke(hwnd);
+                return;
+            }
             switch (kind)
             {
                 case ZoneKind.Minimize:

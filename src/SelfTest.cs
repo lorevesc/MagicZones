@@ -22,6 +22,7 @@ namespace MagicZones
             Throws();
             Neighbours();
             PopupTiles();
+            StartupPaths();
             Console.WriteLine(failures == 0 ? "SELFTEST OK" : $"SELFTEST: {failures} FALLITI");
             return failures;
         }
@@ -127,6 +128,29 @@ namespace MagicZones
                 Check(whole != null && zm.TargetRect(whole) == Rectangle.FromLTRB(-1072, 8, -8, 1864),
                     "popup: monitor senza zone = tessera schermo intero");
             }
+        }
+
+        private static void StartupPaths()
+        {
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+
+            Check(Startup.IsStableLocation(System.IO.Path.Combine(Startup.InstallDir, "MagicZones.exe")),
+                "avvio: %LOCALAPPDATA%\\Programs\\MagicZones è stabile");
+            Check(Startup.IsStableLocation(System.IO.Path.Combine(pf, "MagicZones", "MagicZones.exe")), "avvio: Program Files è stabile");
+            Check(!Startup.IsStableLocation(System.IO.Path.Combine(desktop, "MagicZones.exe")), "avvio: Desktop rifiutato");
+            Check(!Startup.IsStableLocation(System.IO.Path.Combine(profile, "Downloads", "MagicZones.exe")), "avvio: Download rifiutato");
+            Check(!Startup.IsStableLocation(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MagicZones.exe")), "avvio: Temp rifiutato");
+            Check(!Startup.IsStableLocation(System.IO.Path.Combine(local, "ProgramsX", "MagicZones.exe")), "avvio: cartella simile ma diversa rifiutata");
+            string od = Environment.GetEnvironmentVariable("OneDrive");
+            if (!string.IsNullOrEmpty(od))
+                Check(!Startup.IsStableLocation(System.IO.Path.Combine(od, "Desktop", "MagicZones.exe")), "avvio: OneDrive rifiutato");
+
+            Check(Startup.ExePathOf("\"C:\\a b\\MagicZones.exe\" --x") == "C:\\a b\\MagicZones.exe", "avvio: valore Run tra virgolette con argomenti");
+            Check(Startup.ExePathOf("C:\\x\\MagicZones.exe") == "C:\\x\\MagicZones.exe", "avvio: valore Run senza virgolette");
+            Check(Startup.ExePathOf("  ") == null, "avvio: valore Run vuoto");
         }
 
         private static void Neighbours()
