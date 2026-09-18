@@ -1,166 +1,166 @@
 # MagicZones
 
-Zone magiche per setup multi-monitor su Windows 10/11. Trascini una finestra e **sopra la finestra
-appare un popup con la mini-mappa** di tutti i monitor e delle loro zone. Porti il cursore su una
-zona del popup e rilasci: la finestra viene **lanciata** lì, anche sul monitor più lontano, con
-un'animazione di volo. Rilasci fuori dal popup = spostamento normale.
+Magic zones for multi-monitor setups on Windows 10/11. Drag a window and **a popup with a mini-map**
+of all your monitors and their zones **appears above the window**. Move the cursor onto a zone in the
+popup and release: the window is **thrown** there, even to the farthest monitor, with a flight
+animation. Releasing outside the popup = normal move.
 
-C'è anche una modalità alternativa "zone a tutto schermo" (menu *Modalità*) in cui le zone vengono
-disegnate direttamente sui monitor e si può lanciare la finestra con uno scatto del mouse.
+There is also an alternative "full-screen zones" mode (menu *Modalità*) where zones are drawn
+directly on the monitors and you can throw the window with a flick of the mouse.
 
-## Compilare e installare
+> The app's user interface is in Italian. Menu items are quoted below with their English meaning.
+
+## Build and install
 
 ```powershell
 .\build.ps1              # Release -> bin\Release\MagicZones.exe
-.\build.ps1 -Installer   # + dist\MagicZones-Setup-<versione>.exe (serve Inno Setup 6)
+.\build.ps1 -Installer   # + dist\MagicZones-Setup-<version>.exe (requires Inno Setup 6)
 ```
 
-`MagicZones.csproj` è un progetto MSBuild classico su .NET Framework 4.8 (già incluso in Windows,
-niente da installare per usarlo). Per compilare basta il MSBuild di Visual Studio: `build.ps1` lo
-trova da solo. Nessun pacchetto NuGet, nessun offuscatore o packer: l'exe è un normale assembly IL
-con nome prodotto, azienda e versione nelle proprietà del file (si cambiano nel `.csproj`).
+`MagicZones.csproj` is a classic MSBuild project targeting .NET Framework 4.8 (already included in
+Windows, nothing to install to run it). To build it you only need Visual Studio's MSBuild:
+`build.ps1` finds it on its own. No NuGet packages, no obfuscator or packer: the exe is a plain IL
+assembly with product name, company and version in its file properties (edit them in the `.csproj`).
 
-Per usarlo davvero, installalo con `MagicZones-Setup-x.y.z.exe`: va in
-`%LOCALAPPDATA%\Programs\MagicZones`, senza diritti di amministratore, con collegamento nel menu Start,
-opzione "Avvia con Windows" e disinstallazione da Impostazioni > App. Lanciare l'exe una seconda volta
-apre l'editor delle zone nell'istanza già in esecuzione.
+For everyday use, install it with `MagicZones-Setup-x.y.z.exe`: it goes into
+`%LOCALAPPDATA%\Programs\MagicZones`, without administrator rights, with a Start menu shortcut, a
+"Start with Windows" option and uninstall from Settings > Apps. Launching the exe a second time opens
+the zone editor in the instance that is already running.
 
-## Uso
+## Usage
 
-### Modalità popup (default)
+### Popup mode (default)
 
-| Azione | Cosa succede |
+| Action | What happens |
 |---|---|
-| Trascina una finestra | Sopra la finestra (o sopra il suo contenuto, se è in cima allo schermo) appare la mini-mappa |
-| Cursore su una zona del popup | La zona si illumina, una freccia mostra il lancio e sul monitor reale compare l'anteprima della destinazione |
-| Rilascia sulla zona | La finestra vola lì e si incastra (anche sull'altro monitor) |
-| Rilascia fuori dal popup | Spostamento normale, il popup si dissolve |
-| Allontanarsi dal popup | Diventa trasparente per non dare fastidio |
-| `Ctrl` passando su più zone | Le unisce: la finestra le occupa tutte |
-| `Shift` mentre trascini | Chiude il popup (in modalità "Solo Shift" è il contrario) |
-| Monitor senza zone | Nel popup è una zona unica a schermo intero |
+| Drag a window | The mini-map appears above the window (or over its content, if the window is at the top of the screen) |
+| Cursor over a zone in the popup | The zone lights up, an arrow shows the throw and a preview of the destination appears on the real monitor |
+| Release on the zone | The window flies there and snaps into place (even on another monitor) |
+| Release outside the popup | Normal move, the popup fades out |
+| Move away from the popup | It becomes transparent so it doesn't get in the way |
+| `Ctrl` while passing over several zones | Merges them: the window fills all of them |
+| `Shift` while dragging | Closes the popup (the opposite in "Shift only" mode) |
+| Monitor without zones | Shown in the popup as a single full-screen zone |
 
-### Modalità zone a tutto schermo
+### Full-screen zones mode
 
-| Azione | Cosa succede |
+| Action | What happens |
 |---|---|
-| Trascina una finestra | Compaiono le zone su tutti i monitor e quella sotto il cursore si illumina |
-| Rilascia sopra una zona | La finestra si incastra nella zona (con la spaziatura configurata) |
-| **Lancia** (rilascio in movimento) | La finestra vola nella zona in quella direzione, zona arancione = destinazione |
-| `Ctrl` mentre trascini | Unisce più zone: la finestra le occupa tutte |
-| `Shift` mentre trascini | Nessuna zona, spostamento normale (in modalità "Solo Shift" è il contrario) |
+| Drag a window | Zones appear on all monitors and the one under the cursor lights up |
+| Release over a zone | The window snaps into the zone (with the configured gap) |
+| **Throw** (release while moving) | The window flies to the zone in that direction; orange zone = destination |
+| `Ctrl` while dragging | Merges several zones: the window fills all of them |
+| `Shift` while dragging | No zones, normal move (the opposite in "Shift only" mode) |
 
-### Sempre attivi
+### Always active
 
-| Azione | Cosa succede |
+| Action | What happens |
 |---|---|
-| Trascini fuori una finestra agganciata | Torna alla dimensione originale |
-| `Ctrl+Alt+Win+←↑→↓` | Sposta la finestra attiva nella zona vicina (anche tra monitor) |
-| `Ctrl+Alt+Win+Z` o doppio clic sull'icona | Apre l'editor delle zone |
+| Drag a snapped window out | It goes back to its original size |
+| `Ctrl+Alt+Win+←↑→↓` | Moves the active window to the neighbouring zone (across monitors too) |
+| `Ctrl+Alt+Win+Z` or double-click the tray icon | Opens the zone editor |
 
-### Lancio a scatto (solo modalità tutto schermo): come funziona
+### Flick throw (full-screen mode only): how it works
 
-Mentre trascini viene misurata la velocità del cursore negli ultimi 80 ms. Se al rilascio supera
-`throwMinSpeed` (px/s), la finestra prosegue lungo la traiettoria per `velocità × throwMomentum`
-pixel e atterra nell'ultima zona attraversata. Un lancio forte sbatte contro il bordo del desktop,
-gli spazi vuoti tra monitor vengono sorvolati. Se ti fermi prima di rilasciare, è un normale drop.
+While you drag, the cursor speed over the last 80 ms is measured. If it exceeds `throwMinSpeed`
+(px/s) on release, the window keeps going along its trajectory for `speed × throwMomentum` pixels
+and lands in the last zone it crossed. A strong throw hits the edge of the desktop, empty gaps
+between monitors are flown over. If you stop before releasing, it is a normal drop.
 
-### Editor zone
+### Zone editor
 
-Si apre a schermo intero su tutti i monitor.
+Opens full screen on all monitors.
 
-- Trascina sul vuoto per disegnare una zona. Trascina bordi e angoli per ridimensionare, il centro per spostare.
-- I bordi si agganciano (magnete) a bordi schermo, altre zone, metà/terzi/quarti. `Shift` disattiva il magnete.
-- **Doppio clic** o `T` cambia il tipo di zona: `SNAP` (incastra), `MASSIMIZZA` (massimizza su quel monitor), `MINIMIZZA` (una zona "cestino").
-- Tasto destro o `Canc` elimina, `Ctrl+Z` annulla, `H` nasconde la barra.
-- `Invio` salva, `Esc` esce (chiede conferma se ci sono modifiche).
-- Preset pronti: 2/3 colonne, 25|50|25, Main + 2, 2×2, 2/3 righe (comodi sul monitor verticale).
+- Drag on empty space to draw a zone. Drag edges and corners to resize, the center to move.
+- Edges snap (magnet) to screen edges, other zones, halves/thirds/quarters. `Shift` disables the magnet.
+- **Double-click** or `T` changes the zone type: `SNAP` (snap into place), `MASSIMIZZA` (maximize on that monitor), `MINIMIZZA` (minimize, a "trash" zone).
+- Right-click or `Del` deletes, `Ctrl+Z` undoes, `H` hides the toolbar.
+- `Enter` saves, `Esc` exits (asks for confirmation if there are unsaved changes).
+- Ready-made presets: 2/3 columns, 25|50|25, Main + 2, 2×2, 2/3 rows (handy on a vertical monitor).
 
-## Configurazione
+## Configuration
 
-`%APPDATA%\MagicZones\config.json` (dal menu dell'icona: *Apri cartella configurazione*, poi
-*Ricarica configurazione*). Le zone sono salvate in frazioni dell'area di lavoro di ogni monitor,
-quindi reggono i cambi di risoluzione. I monitor sono riconosciuti per ID hardware, quindi le zone
-restano sul monitor giusto anche se cambia la numerazione.
+`%APPDATA%\MagicZones\config.json` (from the tray icon menu: *Apri cartella configurazione* — open
+config folder, then *Ricarica configurazione* — reload config). Zones are stored as fractions of each
+monitor's work area, so they survive resolution changes. Monitors are identified by hardware ID, so
+zones stay on the right monitor even if the numbering changes.
 
-| Chiave | Default | Significato |
+| Key | Default | Meaning |
 |---|---|---|
-| `mode` | `"popup"` | `"popup"` = mini-mappa sopra la finestra, `"overlay"` = zone a tutto schermo |
-| `popupWidth` | `460` | Larghezza del popup (px a 100%, scalata col DPI) |
-| `activation` | `"always"` | `"always"` = popup/zone a ogni trascinamento, `"shift"` = solo tenendo Shift |
-| `throwEnabled` | `true` | Lancio a scatto (solo modalità overlay) |
-| `throwMinSpeed` | `2600` | Velocità minima al rilascio per considerarlo un lancio (px fisici/s) |
-| `throwMomentum` | `0.35` | Distanza di volo = velocità × questo valore (secondi) |
-| `animate`, `animationMs` | `true`, `220` | Animazione di atterraggio |
-| `gap` | `8` | Spaziatura tra finestre (px a 100%, scalata col DPI del monitor) |
-| `restoreSizeOnUnsnap` | `true` | Ridà la dimensione originale quando porti la finestra fuori dalle zone |
-| `hotkeys` | `true` | Scorciatoie `Ctrl+Alt+Win+…` |
-| `accentColor`, `throwColor` | blu, arancio | Colori overlay |
-| `excludedProcesses` | `[]` | Processi da ignorare, es. `["Photoshop", "obs64"]` |
-| `debugLog` | `false` | Traccia ogni trascinamento nel log (per capire i problemi) |
+| `mode` | `"popup"` | `"popup"` = mini-map above the window, `"overlay"` = full-screen zones |
+| `popupWidth` | `460` | Popup width (px at 100%, scaled with DPI) |
+| `activation` | `"always"` | `"always"` = popup/zones on every drag, `"shift"` = only while holding Shift |
+| `throwEnabled` | `true` | Flick throw (overlay mode only) |
+| `throwMinSpeed` | `2600` | Minimum speed on release to count as a throw (physical px/s) |
+| `throwMomentum` | `0.35` | Flight distance = speed × this value (seconds) |
+| `animate`, `animationMs` | `true`, `220` | Landing animation |
+| `gap` | `8` | Gap between windows (px at 100%, scaled with the monitor's DPI) |
+| `restoreSizeOnUnsnap` | `true` | Restores the original size when you drag the window out of the zones |
+| `hotkeys` | `true` | `Ctrl+Alt+Win+…` shortcuts |
+| `accentColor`, `throwColor` | blue, orange | Overlay colors |
+| `excludedProcesses` | `[]` | Processes to ignore, e.g. `["Photoshop", "obs64"]` |
+| `debugLog` | `false` | Traces every drag in the log (for troubleshooting) |
 
-Log errori: `%APPDATA%\MagicZones\log.txt`.
+Error log: `%APPDATA%\MagicZones\log.txt`.
 
-Il volo della finestra: prende subito la dimensione della zona e poi si sposta soltanto (niente
-ridimensionamento a ogni fotogramma, che fa "ondeggiare" il contenuto), rallentando in atterraggio
-senza rimbalzo. Se la riprendi mentre vola o appena atterrata, MagicZones la lascia subito.
+The window flight: the window takes the zone's size immediately and then only moves (no resizing on
+every frame, which makes the content "wobble"), slowing down on landing without bouncing. If you grab
+it again while it's flying or right after it lands, MagicZones lets go of it immediately.
 
-## Note
+## Notes
 
-- Le finestre di programmi avviati **come amministratore** (es. Supremo, Gestione attività, un
-  terminale admin) non si possono spostare da un processo normale: è un blocco di Windows (UIPI).
-  MagicZones le riconosce: il popup lo scrive in giallo e al rilascio spiega cosa fare. Se ti serve,
-  clic destro sull'icona → **Riavvia come amministratore** (una conferma UAC, vale fino alla
-  chiusura). Le app che girano come SYSTEM restano intoccabili anche così.
-- **Avvio automatico**: solo tramite il valore `MagicZones` in
-  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, scritto dall'installer o dalla voce di menu
-  "Avvia con Windows" (che lo toglie anche). Si attiva solo dalla copia installata in
-  `%LOCALAPPDATA%\Programs` o `Program Files`, mai da Desktop, OneDrive, Download o Temp. Niente
-  attività pianificate e niente avvio come amministratore: a MagicZones non servono.
-- Se le Snap Layouts di Windows 11 (il menu che compare trascinando in alto) danno fastidio, si
-  disattivano in *Impostazioni > Sistema > Multitasking*.
+- Windows of programs started **as administrator** (e.g. Supremo, Task Manager, an admin terminal)
+  cannot be moved by a normal process: this is a Windows restriction (UIPI). MagicZones detects
+  them: the popup says so in yellow and explains what to do on release. If you need it, right-click
+  the tray icon → **Riavvia come amministratore** (restart as administrator; one UAC prompt, lasts
+  until you exit). Apps running as SYSTEM remain untouchable even then.
+- **Autostart**: only through the `MagicZones` value in
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, written by the installer or by the
+  *Avvia con Windows* (start with Windows) menu item (which also removes it). It is only enabled for
+  the copy installed in `%LOCALAPPDATA%\Programs` or `Program Files`, never from Desktop, OneDrive,
+  Downloads or Temp. No scheduled tasks and no running as administrator: MagicZones doesn't need them.
+- If Windows 11 Snap Layouts (the menu that appears when dragging to the top) get in the way, you can
+  turn them off in *Settings > System > Multitasking*.
 
 ## Antivirus (Microsoft Defender)
 
-Una versione precedente veniva cancellata da Defender (`Behavior:Win32/Execution.A!ml`, falso
-positivo): un exe non firmato, lanciato da una cartella OneDrive, avviava `schtasks.exe` nascosto
-per creare un'attività pianificata con privilegi massimi. Ora l'app:
+A previous version was deleted by Defender (`Behavior:Win32/Execution.A!ml`, a false positive): an
+unsigned exe, launched from a OneDrive folder, ran a hidden `schtasks.exe` to create a scheduled task
+with highest privileges. Now the app:
 
-- non avvia mai `schtasks`, `cmd` o `powershell` e non crea attività pianificate;
-- non si copia da sola né si reinstalla: l'installazione la fa `MagicZones-Setup`;
-- scrive l'avvio automatico solo su richiesta, nella chiave Run dell'utente, verso la copia installata;
-- gira `asInvoker` (nessuna richiesta di amministratore all'avvio).
+- never launches `schtasks`, `cmd` or `powershell` and never creates scheduled tasks;
+- never copies or reinstalls itself: installation is handled by `MagicZones-Setup`;
+- writes the autostart entry only on request, in the user's Run key, pointing to the installed copy;
+- runs `asInvoker` (no administrator prompt at startup).
 
-Per ridurre ancora i falsi positivi: firma exe e installer con un certificato di firma del codice
-(la direttiva `SignTool` è già predisposta in `installer\MagicZones.iss`) e, se Defender segnala
-ancora qualcosa, invia il file come falso positivo a Microsoft
-(https://www.microsoft.com/wdsi/filesubmission). Non creare esclusioni in Defender per aggirarlo.
-- Se le Snap Layouts di Windows 11 (il menu che compare trascinando in alto) danno fastidio, si
-  disattivano in *Impostazioni > Sistema > Multitasking*.
+To further reduce false positives: sign the exe and installer with a code signing certificate (the
+`SignTool` directive is already prepared in `installer\MagicZones.iss`) and, if Defender still flags
+something, submit the file to Microsoft as a false positive
+(https://www.microsoft.com/wdsi/filesubmission). Don't create Defender exclusions to work around it.
 
-## Sviluppo
+## Development
 
 ```
-MagicZones.csproj   progetto MSBuild (identità del file, Release in bin\Release)
-installer/          MagicZones.iss: installer Inno Setup per utente
+MagicZones.csproj   MSBuild project (file identity, Release in bin\Release)
+installer/          MagicZones.iss: per-user Inno Setup installer
 src/
-  Program.cs        entry point, istanza singola, --selftest / --preview / --export-icon
-  TrayApp.cs        icona nel tray, menu, hotkey, cambi monitor
-  Startup.cs        avvio automatico (chiave Run HKCU) e controllo percorso stabile
-  Integrity.cs      riconosce le finestre di app con privilegi più alti (UIPI)
-  DragTracker.cs    hook WinEvent sul trascinamento, misura velocità, decide drop/lancio
-  Popup.cs          mini-mappa sopra la finestra trascinata
-  ZoneManager.cs    zone in pixel, hit test, fisica del lancio, zona vicina
-  WindowMover.cs    SetWindowPos con compensazione bordi invisibili, animazione, riassestamento DPI
-  Overlay.cs        overlay per monitor durante il drag
-  Editor.cs         editor zone a schermo intero
-  LayeredWindow.cs  finestre con alpha per pixel (UpdateLayeredWindow + DIB)
+  Program.cs        entry point, single instance, --selftest / --preview / --export-icon
+  TrayApp.cs        tray icon, menu, hotkeys, monitor changes
+  Startup.cs        autostart (HKCU Run key) and stable path check
+  Integrity.cs      detects windows of apps with higher privileges (UIPI)
+  DragTracker.cs    WinEvent hook on drag, measures speed, decides drop/throw
+  Popup.cs          mini-map above the dragged window
+  ZoneManager.cs    zones in pixels, hit testing, throw physics, neighbouring zone
+  WindowMover.cs    SetWindowPos with invisible border compensation, animation, DPI settling
+  Overlay.cs        per-monitor overlay while dragging
+  Editor.cs         full-screen zone editor
+  LayeredWindow.cs  per-pixel alpha windows (UpdateLayeredWindow + DIB)
   Config.cs, Json.cs, Monitors.cs, Geometry.cs, Support.cs, Native.cs
 ```
 
-- `bin\Release\MagicZones.exe --selftest | Out-String` esegue i test della logica (JSON, zone, lancio, percorsi di avvio) su un desktop sintetico.
-- `bin\Release\MagicZones.exe --preview .\preview` salva in PNG overlay, popup ed editor di ogni monitor senza mostrarli.
-- `tools\DragHarness.cs` è un test end-to-end: apre una finestra di prova e la trascina col mouse vero
-  (SendInput) con MagicZones in esecuzione: rilascio da fermo, finestra in cima, massimizzata, popup
-  con cambio idea, lancio, ripristino dimensione, ripresa subito dopo l'atterraggio. Muove il mouse per
-  circa 30 secondi e clicca solo sulla propria finestra.
+- `bin\Release\MagicZones.exe --selftest | Out-String` runs the logic tests (JSON, zones, throw, startup paths) on a synthetic desktop.
+- `bin\Release\MagicZones.exe --preview .\preview` saves overlay, popup and editor of each monitor as PNG without showing them.
+- `tools\DragHarness.cs` is an end-to-end test: it opens a test window and drags it with the real mouse
+  (SendInput) while MagicZones is running: drop at rest, window at the top, maximized, popup with a
+  change of mind, throw, size restore, grabbing right after landing. It moves the mouse for about
+  30 seconds and only clicks on its own window.
