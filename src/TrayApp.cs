@@ -28,7 +28,7 @@ namespace MagicZones
         private EditorSession editor;
         private Icon iconOn, iconOff;
 
-        private ToolStripMenuItem miEnabled, miAlways, miShift, miThrow, miAnimate, miStartup, miGap, miPopup, miOverlay;
+        private ToolStripMenuItem miEnabled, miAlways, miShift, miThrow, miAnimate, miStartup, miGap, miPopup, miOverlay, miLanguage;
 
         public TrayApp()
         {
@@ -36,6 +36,7 @@ namespace MagicZones
 
             bool firstRun = !File.Exists(AppConfig.FilePath);
             config = AppConfig.Load(out string loadError);
+            Lang.Apply(config.Language);
             Log.Verbose = config.DebugLog;
             zones = new ZoneManager(config);
             zones.Rebuild();
@@ -70,44 +71,41 @@ namespace MagicZones
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
 
             if (loadError != null)
-                tray.ShowBalloonTip(6000, "MagicZones: config non valida",
-                    "Uso le impostazioni di default. Errore: " + loadError, ToolTipIcon.Warning);
+                tray.ShowBalloonTip(6000, Lang.ConfigInvalidTitle, Lang.ConfigInvalidText(loadError), ToolTipIcon.Warning);
             else if (firstRun)
-                tray.ShowBalloonTip(6000, "MagicZones è attivo",
-                    "Trascina una finestra: sopra appare la mini-mappa. Rilascia su una zona e la finestra ci vola, " +
-                    "anche sull'altro monitor. Doppio clic sull'icona per disegnare le tue zone.", ToolTipIcon.Info);
+                tray.ShowBalloonTip(6000, Lang.WelcomeTitle, Lang.WelcomeText, ToolTipIcon.Info);
         }
 
         // ---- Menu -------------------------------------------------------------------------
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            var title = new ToolStripMenuItem(Integrity.IsElevated ? "MagicZones (amministratore)" : "MagicZones") { Enabled = false };
+            var title = new ToolStripMenuItem(Integrity.IsElevated ? Lang.TitleElevated : "MagicZones") { Enabled = false };
             title.Font = new Font(title.Font, FontStyle.Bold);
             menu.Items.Add(title);
             menu.Items.Add(new ToolStripSeparator());
 
-            miEnabled = new ToolStripMenuItem("Attivo", null, (s, e) => SetEnabled(!config.Enabled)) { Checked = config.Enabled };
+            miEnabled = new ToolStripMenuItem(Lang.Enabled, null, (s, e) => SetEnabled(!config.Enabled)) { Checked = config.Enabled };
             menu.Items.Add(miEnabled);
-            menu.Items.Add(new ToolStripMenuItem("Modifica zone…", null, (s, e) => OpenEditor())
+            menu.Items.Add(new ToolStripMenuItem(Lang.EditZones, null, (s, e) => OpenEditor())
                 { ShortcutKeyDisplayString = "Ctrl+Alt+Win+Z", Font = new Font(menu.Font, FontStyle.Bold) });
             menu.Items.Add(new ToolStripSeparator());
 
-            var mode = new ToolStripMenuItem("Modalità");
-            miPopup = new ToolStripMenuItem("Popup sopra la finestra (mini-mappa)", null, (s, e) => SetMode("popup"));
-            miOverlay = new ToolStripMenuItem("Zone a tutto schermo", null, (s, e) => SetMode("overlay"));
+            var mode = new ToolStripMenuItem(Lang.Mode);
+            miPopup = new ToolStripMenuItem(Lang.ModePopup, null, (s, e) => SetMode("popup"));
+            miOverlay = new ToolStripMenuItem(Lang.ModeOverlay, null, (s, e) => SetMode("overlay"));
             mode.DropDownItems.Add(miPopup);
             mode.DropDownItems.Add(miOverlay);
             menu.Items.Add(mode);
 
-            var show = new ToolStripMenuItem("Quando trascini");
-            miAlways = new ToolStripMenuItem("Sempre (tieni Shift per ignorare)", null, (s, e) => SetActivation("always"));
-            miShift = new ToolStripMenuItem("Solo tenendo premuto Shift", null, (s, e) => SetActivation("shift"));
+            var show = new ToolStripMenuItem(Lang.WhenDragging);
+            miAlways = new ToolStripMenuItem(Lang.ActivationAlways, null, (s, e) => SetActivation("always"));
+            miShift = new ToolStripMenuItem(Lang.ActivationShift, null, (s, e) => SetActivation("shift"));
             show.DropDownItems.Add(miAlways);
             show.DropDownItems.Add(miShift);
             menu.Items.Add(show);
 
-            miThrow = new ToolStripMenuItem("Lancio a scatto (solo tutto schermo)", null, (s, e) =>
+            miThrow = new ToolStripMenuItem(Lang.FlickThrow, null, (s, e) =>
             {
                 config.ThrowEnabled = !config.ThrowEnabled;
                 TrySave();
@@ -115,7 +113,7 @@ namespace MagicZones
             });
             menu.Items.Add(miThrow);
 
-            miAnimate = new ToolStripMenuItem("Animazioni", null, (s, e) =>
+            miAnimate = new ToolStripMenuItem(Lang.Animations, null, (s, e) =>
             {
                 config.Animate = !config.Animate;
                 TrySave();
@@ -123,11 +121,11 @@ namespace MagicZones
             });
             menu.Items.Add(miAnimate);
 
-            miGap = new ToolStripMenuItem("Spaziatura tra finestre");
+            miGap = new ToolStripMenuItem(Lang.Gap);
             foreach (int gap in new[] { 0, 4, 8, 12, 16, 24 })
             {
                 int g = gap;
-                miGap.DropDownItems.Add(new ToolStripMenuItem(g == 0 ? "Nessuna" : g + " px", null, (s, e) =>
+                miGap.DropDownItems.Add(new ToolStripMenuItem(g == 0 ? Lang.GapNone : g + " px", null, (s, e) =>
                 {
                     config.Gap = g;
                     TrySave();
@@ -136,24 +134,33 @@ namespace MagicZones
                 }) { Tag = g });
             }
             menu.Items.Add(miGap);
+
+            miLanguage = new ToolStripMenuItem(Lang.Language);
+            foreach (string code in Lang.Codes)
+            {
+                string c = code;
+                string text = c == "it" ? Lang.LanguageItalian : c == "en" ? Lang.LanguageEnglish : Lang.LanguageAuto;
+                miLanguage.DropDownItems.Add(new ToolStripMenuItem(text, null, (s, e) => SetLanguage(c)) { Tag = c });
+            }
+            menu.Items.Add(miLanguage);
             menu.Items.Add(new ToolStripSeparator());
 
-            miStartup = new ToolStripMenuItem("Avvia con Windows", null, (s, e) => ToggleStartup());
+            miStartup = new ToolStripMenuItem(Lang.StartWithWindows, null, (s, e) => ToggleStartup());
             menu.Items.Add(miStartup);
             if (!Integrity.IsElevated)
-                menu.Items.Add(new ToolStripMenuItem("Riavvia come amministratore", null, (s, e) => RestartElevated())
-                    { ToolTipText = "Serve per spostare le finestre delle app avviate come amministratore" });
-            menu.Items.Add(new ToolStripMenuItem("Riavvia MagicZones", null, (s, e) => Restart())
-                { ToolTipText = "Carica la versione appena compilata, con gli stessi privilegi" });
-            menu.Items.Add(new ToolStripMenuItem("Apri cartella configurazione", null, (s, e) =>
+                menu.Items.Add(new ToolStripMenuItem(Lang.RestartElevated, null, (s, e) => RestartElevated())
+                    { ToolTipText = Lang.RestartElevatedTip });
+            menu.Items.Add(new ToolStripMenuItem(Lang.Restart, null, (s, e) => Restart())
+                { ToolTipText = Lang.RestartTip });
+            menu.Items.Add(new ToolStripMenuItem(Lang.OpenConfigFolder, null, (s, e) =>
             {
                 Directory.CreateDirectory(AppConfig.Folder);
                 // Let the shell open the folder (no explicit explorer.exe child process).
                 Process.Start(new ProcessStartInfo(AppConfig.Folder) { UseShellExecute = true });
             }));
-            menu.Items.Add(new ToolStripMenuItem("Ricarica configurazione", null, (s, e) => ReloadConfig()));
+            menu.Items.Add(new ToolStripMenuItem(Lang.ReloadConfig, null, (s, e) => ReloadConfig()));
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(new ToolStripMenuItem("Esci", null, (s, e) => ExitThread()));
+            menu.Items.Add(new ToolStripMenuItem(Lang.Exit, null, (s, e) => ExitThread()));
 
             menu.Opening += (s, e) => RefreshMenu();
             RefreshMenu();
@@ -172,8 +179,26 @@ namespace MagicZones
             miAnimate.Checked = config.Animate;
             miStartup.Checked = Startup.IsEnabledFor(Application.ExecutablePath);
             foreach (ToolStripMenuItem item in miGap.DropDownItems) item.Checked = (int)item.Tag == config.Gap;
+            foreach (ToolStripMenuItem item in miLanguage.DropDownItems) item.Checked = (string)item.Tag == config.Language;
             tray.Icon = config.Enabled ? iconOn : iconOff;
-            tray.Text = config.Enabled ? "MagicZones — attivo" : "MagicZones — in pausa";
+            tray.Text = config.Enabled ? Lang.TrayOn : Lang.TrayOff;
+        }
+
+        private void SetLanguage(string code)
+        {
+            config.Language = Lang.Normalize(code);
+            TrySave();
+            ApplyLanguage();
+        }
+
+        /// <summary>Menu texts are fixed at build time: rebuild it. Everything else reads Lang when drawing.</summary>
+        private void ApplyLanguage()
+        {
+            Lang.Apply(config.Language);
+            var old = tray.ContextMenuStrip;
+            tray.ContextMenuStrip = BuildMenu();
+            // We may be inside a click handler of the old menu: dispose it once that has unwound.
+            ui.Post(_ => old?.Dispose(), null);
         }
 
         private void SetEnabled(bool on)
@@ -204,7 +229,7 @@ namespace MagicZones
             catch (Exception e)
             {
                 Log.Write("Save: " + e);
-                tray?.ShowBalloonTip(4000, "MagicZones", "Impossibile salvare la configurazione: " + e.Message, ToolTipIcon.Error);
+                tray?.ShowBalloonTip(4000, "MagicZones", Lang.SaveFailed(e.Message), ToolTipIcon.Error);
             }
         }
 
@@ -213,11 +238,13 @@ namespace MagicZones
             var fresh = AppConfig.Load(out string err);
             if (err != null)
             {
-                tray.ShowBalloonTip(5000, "MagicZones", "Config non valida, non ricaricata: " + err, ToolTipIcon.Warning);
+                tray.ShowBalloonTip(5000, "MagicZones", Lang.ReloadFailed(err), ToolTipIcon.Warning);
                 return;
             }
             // Copy into the live instance: every component holds a reference to it.
             config.Enabled = fresh.Enabled;
+            bool languageChanged = config.Language != fresh.Language;
+            config.Language = fresh.Language;
             config.Mode = fresh.Mode;
             config.PopupWidth = fresh.PopupWidth;
             config.Activation = fresh.Activation;
@@ -237,8 +264,9 @@ namespace MagicZones
             config.Layouts = fresh.Layouts;
             RegisterHotkeys();
             RebuildMonitors();
+            if (languageChanged) ApplyLanguage();
             RefreshMenu();
-            tray.ShowBalloonTip(2000, "MagicZones", "Configurazione ricaricata", ToolTipIcon.Info);
+            tray.ShowBalloonTip(2000, "MagicZones", Lang.Reloaded, ToolTipIcon.Info);
         }
 
         // ---- Editor -----------------------------------------------------------------------
@@ -254,7 +282,7 @@ namespace MagicZones
                 if (saved) TrySave();
                 RebuildMonitors();
                 tracker.Start();
-                if (saved) tray.ShowBalloonTip(1500, "MagicZones", "Zone salvate", ToolTipIcon.Info);
+                if (saved) tray.ShowBalloonTip(1500, "MagicZones", Lang.ZonesSaved, ToolTipIcon.Info);
             });
         }
 
@@ -323,13 +351,9 @@ namespace MagicZones
             if (blockedNotified.TryGetValue(app, out var last) && (DateTime.UtcNow - last).TotalSeconds < 20) return;
             blockedNotified[app] = DateTime.UtcNow;
             if (Integrity.IsElevated)
-                tray.ShowBalloonTip(6000, "MagicZones non può spostare " + app,
-                    app + " gira con privilegi di sistema: Windows non permette a nessun'altra app di spostare le sue finestre.",
-                    ToolTipIcon.Warning);
+                tray.ShowBalloonTip(6000, Lang.BlockedSystemTitle(app), Lang.BlockedSystemText(app), ToolTipIcon.Warning);
             else
-                tray.ShowBalloonTip(8000, app + " è avviato come amministratore",
-                    "Windows non lascia spostare le sue finestre a un'app normale. Clic destro sull'icona di MagicZones → " +
-                    "\"Riavvia come amministratore\".", ToolTipIcon.Warning);
+                tray.ShowBalloonTip(8000, Lang.BlockedAdminTitle(app), Lang.BlockedAdminText, ToolTipIcon.Warning);
         }
 
         /// <summary>Relaunch with the same privileges (the child inherits our token, no UAC).</summary>
@@ -342,7 +366,7 @@ namespace MagicZones
             }
             catch (Exception e)
             {
-                tray.ShowBalloonTip(4000, "MagicZones", "Riavvio non riuscito: " + e.Message, ToolTipIcon.Error);
+                tray.ShowBalloonTip(4000, "MagicZones", Lang.RestartFailed(e.Message), ToolTipIcon.Error);
                 return;
             }
             ExitThread();
@@ -387,15 +411,10 @@ namespace MagicZones
                 else
                 {
                     string stale = Startup.Target;
-                    string text =
-                        "L'avvio automatico si attiva solo dalla versione installata.\n\n" +
-                        "Questa copia gira da:\n" + Path.GetDirectoryName(exe) + "\n\n" +
-                        "Installa MagicZones con MagicZones-Setup.exe (va in " + Startup.InstallDir + ", " +
-                        "senza diritti di amministratore) e spunta \"Avvia con Windows\" durante l'installazione " +
-                        "o dal menu della copia installata.";
+                    string text = Lang.StartupNotInstalled(Path.GetDirectoryName(exe), Startup.InstallDir);
                     if (stale != null)
                     {
-                        text += "\n\nC'è già un avvio automatico che punta a:\n" + stale + "\n\nRimuoverlo?";
+                        text += Lang.StartupStale(stale);
                         if (MessageBox.Show(text, "MagicZones", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                             Startup.Disable();
                     }
@@ -407,7 +426,7 @@ namespace MagicZones
             }
             catch (Exception e)
             {
-                tray.ShowBalloonTip(5000, "MagicZones", "Impossibile modificare l'avvio automatico: " + e.Message, ToolTipIcon.Error);
+                tray.ShowBalloonTip(5000, "MagicZones", Lang.StartupFailed(e.Message), ToolTipIcon.Error);
             }
             RefreshMenu();
         }

@@ -54,7 +54,7 @@ namespace MagicZones
         public static void Enable(string exe)
         {
             if (!IsStableLocation(exe))
-                throw new InvalidOperationException("l'avvio automatico si attiva solo da una cartella di installazione stabile");
+                throw new InvalidOperationException(Lang.StartupUnstable);
             using (var k = Registry.CurrentUser.OpenSubKey(RunKey, writable: true) ?? Registry.CurrentUser.CreateSubKey(RunKey))
                 k.SetValue(Name, "\"" + exe + "\"", RegistryValueKind.String);
         }

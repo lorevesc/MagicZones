@@ -19,7 +19,7 @@ AppVerName=MagicZones {#AppVersion}
 AppPublisher=lorenzo
 VersionInfoVersion={#AppVersion}
 VersionInfoProductName=MagicZones
-VersionInfoDescription=Installazione di MagicZones
+VersionInfoDescription=MagicZones Setup
 ; Per-user install: {autopf} resolves to %LOCALAPPDATA%\Programs, nothing needs elevation.
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\MagicZones
@@ -32,6 +32,8 @@ OutputBaseFilename=MagicZones-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; Setup language follows the Windows display language (Italian, otherwise English), no dialog.
+ShowLanguageDialog=no
 ; Ask the running app to close before replacing/removing its files (same mutex as Program.cs).
 AppMutex=Local\MagicZones.SingleInstance
 CloseApplications=yes
@@ -40,10 +42,20 @@ CloseApplications=yes
 ; SignedUninstaller=yes
 
 [Languages]
+; First entry = fallback when the Windows language is neither of these.
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
 
+[CustomMessages]
+en.AutostartTask=Start MagicZones with Windows
+it.AutostartTask=Avvia MagicZones con Windows
+en.OptionsGroup=Options:
+it.OptionsGroup=Opzioni:
+en.RunNow=Start MagicZones now
+it.RunNow=Avvia MagicZones adesso
+
 [Tasks]
-Name: "autostart"; Description: "Avvia MagicZones con Windows"; GroupDescription: "Opzioni:"
+Name: "autostart"; Description: "{cm:AutostartTask}"; GroupDescription: "{cm:OptionsGroup}"
 
 [Files]
 Source: "{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
@@ -52,7 +64,7 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\MagicZones"; Filename: "{app}\MagicZones.exe"
-Name: "{autoprograms}\Disinstalla MagicZones"; Filename: "{uninstallexe}"
+Name: "{autoprograms}\{cm:UninstallProgram,MagicZones}"; Filename: "{uninstallexe}"
 
 [Registry]
 ; Autostart = HKCU Run value pointing at the installed exe. No scheduled task, no admin.
@@ -60,7 +72,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
   ValueData: """{app}\MagicZones.exe"""; Tasks: autostart; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\MagicZones.exe"; Description: "Avvia MagicZones adesso"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\MagicZones.exe"; Description: "{cm:RunNow}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 // Autostart may also have been switched on from the app's tray menu: remove it on uninstall

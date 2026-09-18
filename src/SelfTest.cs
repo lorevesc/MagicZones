@@ -23,6 +23,7 @@ namespace MagicZones
             Neighbours();
             PopupTiles();
             StartupPaths();
+            Languages();
             Console.WriteLine(failures == 0 ? "SELFTEST OK" : $"SELFTEST: {failures} FALLITI");
             return failures;
         }
@@ -151,6 +152,18 @@ namespace MagicZones
             Check(Startup.ExePathOf("\"C:\\a b\\MagicZones.exe\" --x") == "C:\\a b\\MagicZones.exe", "avvio: valore Run tra virgolette con argomenti");
             Check(Startup.ExePathOf("C:\\x\\MagicZones.exe") == "C:\\x\\MagicZones.exe", "avvio: valore Run senza virgolette");
             Check(Startup.ExePathOf("  ") == null, "avvio: valore Run vuoto");
+        }
+
+        private static void Languages()
+        {
+            Check(Lang.Normalize("EN ") == "en" && Lang.Normalize("it") == "it", "lingua: codici normalizzati");
+            Check(Lang.Normalize("de") == "auto" && Lang.Normalize(null) == "auto", "lingua: sconosciuta = auto");
+            Lang.Apply("en");
+            Check(!Lang.Italian && ZoneDef.KindLabel(ZoneKind.Maximize) == "MAXIMIZE", "lingua: en forzato");
+            Lang.Apply("it");
+            Check(Lang.Italian && ZoneDef.KindLabel(ZoneKind.Maximize) == "MASSIMIZZA", "lingua: it forzato");
+            Lang.Apply("auto");
+            Check(Lang.Italian == Lang.Detect(), "lingua: auto segue Windows", System.Globalization.CultureInfo.CurrentUICulture.Name);
         }
 
         private static void Neighbours()

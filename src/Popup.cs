@@ -240,17 +240,17 @@ namespace MagicZones
                     {
                         g.FillEllipse(warn, panel.X + 14 * s, hy - 4 * s, 8 * s, 8 * s);
                         string why = Integrity.IsElevated
-                            ? $"{LockedApp}: Windows non la lascia spostare"
-                            : $"{LockedApp}: serve MagicZones da amministratore";
+                            ? Lang.PopupLockedSystem(LockedApp)
+                            : Lang.PopupLockedAdmin(LockedApp);
                         g.DrawString(why, title, warn, new RectangleF(panel.X + 28 * s, hy - 10 * s, panel.Width - 40 * s, 20 * s), sfL);
                     }
                 }
                 else
                 {
                     g.FillEllipse(dot, panel.X + 14 * s, hy - 4 * s, 8 * s, 8 * s);
-                    string text = state.Hover.Count > 1 ? $"Unisci {state.Hover.Count} zone" : "Lancia su…";
+                    string text = state.Hover.Count > 1 ? Lang.PopupMerge(state.Hover.Count) : Lang.PopupThrowTo;
                     g.DrawString(text, title, titleBrush, new PointF(panel.X + 28 * s, hy), sfL);
-                    g.DrawString("Ctrl unisci · Shift chiudi", hint, hintBrush,
+                    g.DrawString(Lang.PopupHint, hint, hintBrush,
                         new RectangleF(panel.X, hy - 10 * s, panel.Width - 14 * s, 20 * s), sfR);
                 }
             }

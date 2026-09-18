@@ -40,9 +40,9 @@ namespace MagicZones
         {
             switch (k)
             {
-                case ZoneKind.Maximize: return "MASSIMIZZA";
-                case ZoneKind.Minimize: return "MINIMIZZA";
-                default: return "SNAP";
+                case ZoneKind.Maximize: return Lang.KindMaximize;
+                case ZoneKind.Minimize: return Lang.KindMinimize;
+                default: return Lang.KindSnap;
             }
         }
     }
@@ -57,6 +57,8 @@ namespace MagicZones
     internal sealed class AppConfig
     {
         public bool Enabled = true;
+        /// <summary>UI language: "auto" (Windows display language), "it" or "en".</summary>
+        public string Language = "auto";
         /// <summary>"popup": mini-map popup above the dragged window. "overlay": zones drawn full screen.</summary>
         public string Mode = "popup";
         /// <summary>Popup width in logical px (scaled by the monitor DPI).</summary>
@@ -95,6 +97,7 @@ namespace MagicZones
                 if (root == null) return cfg;
 
                 cfg.Enabled = Json.Get(root, "enabled", cfg.Enabled);
+                cfg.Language = Lang.Normalize(Json.Get(root, "language", cfg.Language));
                 cfg.Mode = Json.Get(root, "mode", cfg.Mode) == "overlay" ? "overlay" : "popup";
                 cfg.PopupWidth = Math.Max(260, Math.Min(1200, Json.Get(root, "popupWidth", cfg.PopupWidth)));
                 cfg.Activation = Json.Get(root, "activation", cfg.Activation);
@@ -149,6 +152,7 @@ namespace MagicZones
             var root = new Dictionary<string, object>
             {
                 ["enabled"] = Enabled,
+                ["language"] = Language,
                 ["mode"] = Mode,
                 ["popupWidth"] = PopupWidth,
                 ["activation"] = Activation,

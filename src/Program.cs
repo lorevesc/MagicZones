@@ -17,9 +17,9 @@ namespace MagicZones
                 IconArt.ExportIco(args[1]);
                 return 0;
             }
-            if (args.Length == 2 && args[0] == "--preview")
+            if ((args.Length == 2 || args.Length == 3) && args[0] == "--preview")
             {
-                RenderPreviews(args[1]);
+                RenderPreviews(args[1], args.Length == 3 ? args[2] : null);
                 return 0;
             }
             if (args.Length == 1 && args[0] == "--selftest")
@@ -32,7 +32,7 @@ namespace MagicZones
                 return 0;
             }
 
-            // "Riavvia come amministratore": the old instance is exiting, wait for it to let go.
+            // "Restart as administrator" / "Restart MagicZones": the old instance is exiting, wait for it to let go.
             if (args.Length == 2 && args[0] == "--replace" && int.TryParse(args[1], out int oldPid))
             {
                 try
@@ -64,10 +64,12 @@ namespace MagicZones
         }
 
         /// <summary>Renders overlay + editor for every monitor to PNGs (never shown on screen).</summary>
-        private static void RenderPreviews(string dir)
+        /// <param name="language">"it", "en" or "auto"; null = the one in config.json.</param>
+        private static void RenderPreviews(string dir, string language)
         {
             System.IO.Directory.CreateDirectory(dir);
             var config = AppConfig.Load(out _);
+            Lang.Apply(language ?? config.Language);
             var zones = new ZoneManager(config);
             zones.Rebuild();
             config.EnsureDefaults(zones.Monitors);

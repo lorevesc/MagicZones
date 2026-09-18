@@ -51,7 +51,7 @@ namespace MagicZones
             }
             catch
             {
-                return "questa app";
+                return Lang.ThisApp;
             }
         }
 

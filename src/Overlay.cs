@@ -157,7 +157,7 @@ namespace MagicZones
                     var r = zones.SpanRect(hovered);
                     r.Offset(-origin.X, -origin.Y);
                     DrawHighlight(g, r, s, accent);
-                    DrawCenteredText(g, $"{hovered.Count} zone unite", numberFont, Color.FromArgb(235, 255, 255, 255), r);
+                    DrawCenteredText(g, Lang.OverlayMerged(hovered.Count), numberFont, Color.FromArgb(235, 255, 255, 255), r);
                     var dim = new RectangleF(r.X, r.Y + r.Height / 2f + 22 * s, r.Width, 24 * s);
                     DrawCenteredText(g, $"{r.Width} × {r.Height}", smallFont, Color.FromArgb(200, 255, 255, 255), dim);
                 }
@@ -185,7 +185,7 @@ namespace MagicZones
 
             string number = z.Number > 0 ? z.Number.ToString() : "Monitor " + z.Monitor.Number;
             string kind = z.Kind == ZoneKind.Snap ? null : ZoneDef.KindLabel(z.Kind);
-            if (isThrow) kind = "LANCIO";
+            if (isThrow) kind = Lang.OverlayThrow;
             var textColor = active ? Color.FromArgb(240, 255, 255, 255) : Color.FromArgb(130, 255, 255, 255);
 
             // Number scales with the zone: readable at a glance on big monitors, still fits small zones.

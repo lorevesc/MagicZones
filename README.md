@@ -5,10 +5,13 @@ of all your monitors and their zones **appears above the window**. Move the curs
 popup and release: the window is **thrown** there, even to the farthest monitor, with a flight
 animation. Releasing outside the popup = normal move.
 
-There is also an alternative "full-screen zones" mode (menu *Modalità*) where zones are drawn
+There is also an alternative "full-screen zones" mode (menu *Mode*) where zones are drawn
 directly on the monitors and you can throw the window with a flick of the mouse.
 
-> The app's user interface is in Italian. Menu items are quoted below with their English meaning.
+The interface is in **English and Italian**: by default it follows the Windows display language
+(Italian if Windows is in Italian, English otherwise). To force one, right-click the tray icon →
+*Lingua / Language*, or set `"language"` in the configuration. The installer picks its language the
+same way.
 
 ## Build and install
 
@@ -39,7 +42,7 @@ the zone editor in the instance that is already running.
 | Release outside the popup | Normal move, the popup fades out |
 | Move away from the popup | It becomes transparent so it doesn't get in the way |
 | `Ctrl` while passing over several zones | Merges them: the window fills all of them |
-| `Shift` while dragging | Closes the popup (the opposite in "Shift only" mode) |
+| `Shift` while dragging | Closes the popup (the opposite in "Only while holding Shift" mode) |
 | Monitor without zones | Shown in the popup as a single full-screen zone |
 
 ### Full-screen zones mode
@@ -50,7 +53,7 @@ the zone editor in the instance that is already running.
 | Release over a zone | The window snaps into the zone (with the configured gap) |
 | **Throw** (release while moving) | The window flies to the zone in that direction; orange zone = destination |
 | `Ctrl` while dragging | Merges several zones: the window fills all of them |
-| `Shift` while dragging | No zones, normal move (the opposite in "Shift only" mode) |
+| `Shift` while dragging | No zones, normal move (the opposite in "Only while holding Shift" mode) |
 
 ### Always active
 
@@ -73,20 +76,21 @@ Opens full screen on all monitors.
 
 - Drag on empty space to draw a zone. Drag edges and corners to resize, the center to move.
 - Edges snap (magnet) to screen edges, other zones, halves/thirds/quarters. `Shift` disables the magnet.
-- **Double-click** or `T` changes the zone type: `SNAP` (snap into place), `MASSIMIZZA` (maximize on that monitor), `MINIMIZZA` (minimize, a "trash" zone).
+- **Double-click** or `T` changes the zone type: `SNAP` (snap into place), `MAXIMIZE` (maximize on that monitor), `MINIMIZE` (minimize, a "trash" zone). In Italian: `MASSIMIZZA`, `MINIMIZZA`.
 - Right-click or `Del` deletes, `Ctrl+Z` undoes, `H` hides the toolbar.
 - `Enter` saves, `Esc` exits (asks for confirmation if there are unsaved changes).
 - Ready-made presets: 2/3 columns, 25|50|25, Main + 2, 2×2, 2/3 rows (handy on a vertical monitor).
 
 ## Configuration
 
-`%APPDATA%\MagicZones\config.json` (from the tray icon menu: *Apri cartella configurazione* — open
-config folder, then *Ricarica configurazione* — reload config). Zones are stored as fractions of each
-monitor's work area, so they survive resolution changes. Monitors are identified by hardware ID, so
-zones stay on the right monitor even if the numbering changes.
+`%APPDATA%\MagicZones\config.json` (from the tray icon menu: *Open config folder*, then
+*Reload config*). Zones are stored as fractions of each monitor's work area, so they survive
+resolution changes. Monitors are identified by hardware ID, so zones stay on the right monitor even
+if the numbering changes.
 
 | Key | Default | Meaning |
 |---|---|---|
+| `language` | `"auto"` | `"auto"` = Windows display language, `"it"` = Italian, `"en"` = English |
 | `mode` | `"popup"` | `"popup"` = mini-map above the window, `"overlay"` = full-screen zones |
 | `popupWidth` | `460` | Popup width (px at 100%, scaled with DPI) |
 | `activation` | `"always"` | `"always"` = popup/zones on every drag, `"shift"` = only while holding Shift |
@@ -112,13 +116,13 @@ it again while it's flying or right after it lands, MagicZones lets go of it imm
 - Windows of programs started **as administrator** (e.g. Supremo, Task Manager, an admin terminal)
   cannot be moved by a normal process: this is a Windows restriction (UIPI). MagicZones detects
   them: the popup says so in yellow and explains what to do on release. If you need it, right-click
-  the tray icon → **Riavvia come amministratore** (restart as administrator; one UAC prompt, lasts
-  until you exit). Apps running as SYSTEM remain untouchable even then.
+  the tray icon → **Restart as administrator** (one UAC prompt, lasts until you exit). Apps running
+  as SYSTEM remain untouchable even then.
 - **Autostart**: only through the `MagicZones` value in
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, written by the installer or by the
-  *Avvia con Windows* (start with Windows) menu item (which also removes it). It is only enabled for
-  the copy installed in `%LOCALAPPDATA%\Programs` or `Program Files`, never from Desktop, OneDrive,
-  Downloads or Temp. No scheduled tasks and no running as administrator: MagicZones doesn't need them.
+  *Start with Windows* menu item (which also removes it). It is only enabled for the copy installed
+  in `%LOCALAPPDATA%\Programs` or `Program Files`, never from Desktop, OneDrive, Downloads or Temp.
+  No scheduled tasks and no running as administrator: MagicZones doesn't need them.
 - If Windows 11 Snap Layouts (the menu that appears when dragging to the top) get in the way, you can
   turn them off in *Settings > System > Multitasking*.
 
@@ -146,6 +150,7 @@ installer/          MagicZones.iss: per-user Inno Setup installer
 src/
   Program.cs        entry point, single instance, --selftest / --preview / --export-icon
   TrayApp.cs        tray icon, menu, hotkeys, monitor changes
+  Lang.cs           UI strings (Italian/English) and language detection
   Startup.cs        autostart (HKCU Run key) and stable path check
   Integrity.cs      detects windows of apps with higher privileges (UIPI)
   DragTracker.cs    WinEvent hook on drag, measures speed, decides drop/throw
@@ -158,8 +163,8 @@ src/
   Config.cs, Json.cs, Monitors.cs, Geometry.cs, Support.cs, Native.cs
 ```
 
-- `bin\Release\MagicZones.exe --selftest | Out-String` runs the logic tests (JSON, zones, throw, startup paths) on a synthetic desktop.
-- `bin\Release\MagicZones.exe --preview .\preview` saves overlay, popup and editor of each monitor as PNG without showing them.
+- `bin\Release\MagicZones.exe --selftest | Out-String` runs the logic tests (JSON, zones, throw, startup paths, language) on a synthetic desktop.
+- `bin\Release\MagicZones.exe --preview .\preview [it|en]` saves overlay, popup and editor of each monitor as PNG without showing them, optionally in a given language.
 - `tools\DragHarness.cs` is an end-to-end test: it opens a test window and drags it with the real mouse
   (SendInput) while MagicZones is running: drop at rest, window at the top, maximized, popup with a
   change of mind, throw, size restore, grabbing right after landing. It moves the mouse for about

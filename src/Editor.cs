@@ -74,7 +74,7 @@ namespace MagicZones
 
         public void Undo()
         {
-            if (undo.Count == 0) { ShowToast("Niente da annullare"); return; }
+            if (undo.Count == 0) { ShowToast(Lang.NothingToUndo); return; }
             var snap = undo.Pop();
             foreach (var kv in snap) Work[kv.Key] = kv.Value;
             SelectedIndex = -1;
@@ -109,7 +109,7 @@ namespace MagicZones
             var z = Work[SelectedMonitor][SelectedIndex];
             z.Kind = (ZoneKind)(((int)z.Kind + 1) % 3);
             MarkDirty();
-            ShowToast("Zona " + (SelectedIndex + 1) + ": " + ZoneDef.KindLabel(z.Kind));
+            ShowToast(Lang.ZoneKindToast(SelectedIndex + 1, ZoneDef.KindLabel(z.Kind)));
         }
 
         public void ShowToast(string text)
@@ -130,7 +130,7 @@ namespace MagicZones
             if (Dirty && !escArmed)
             {
                 escArmed = true;
-                ShowToast("Modifiche non salvate — Esc di nuovo per uscire senza salvare, Invio per salvare");
+                ShowToast(Lang.UnsavedChanges);
                 return;
             }
             Close(saved: false);
@@ -228,17 +228,17 @@ namespace MagicZones
             buttons.Clear();
             var items = new List<Button>
             {
-                new Button { Text = "2 colonne", Click = () => session.ApplyPreset(monitor, Presets.Columns(2)) },
-                new Button { Text = "3 colonne", Click = () => session.ApplyPreset(monitor, Presets.Columns(3)) },
+                new Button { Text = Lang.Columns(2), Click = () => session.ApplyPreset(monitor, Presets.Columns(2)) },
+                new Button { Text = Lang.Columns(3), Click = () => session.ApplyPreset(monitor, Presets.Columns(3)) },
                 new Button { Text = "25 | 50 | 25", Click = () => session.ApplyPreset(monitor, Presets.Priority()) },
                 new Button { Text = "Main + 2", Click = () => session.ApplyPreset(monitor, Presets.MainAndStack()) },
                 new Button { Text = "2 × 2", Click = () => session.ApplyPreset(monitor, Presets.Grid(2, 2)) },
-                new Button { Text = "2 righe", Click = () => session.ApplyPreset(monitor, Presets.Rows(2)) },
-                new Button { Text = "3 righe", Click = () => session.ApplyPreset(monitor, Presets.Rows(3)) },
-                new Button { Text = "Svuota", Click = () => session.ApplyPreset(monitor, new List<ZoneDef>()) },
-                new Button { Text = "↶ Annulla", Click = () => session.Undo() },
-                new Button { Text = "✓ Salva", Click = () => session.Save(), Primary = true },
-                new Button { Text = "✕ Esci", Click = () => session.Escape() },
+                new Button { Text = Lang.Rows(2), Click = () => session.ApplyPreset(monitor, Presets.Rows(2)) },
+                new Button { Text = Lang.Rows(3), Click = () => session.ApplyPreset(monitor, Presets.Rows(3)) },
+                new Button { Text = Lang.Clear, Click = () => session.ApplyPreset(monitor, new List<ZoneDef>()) },
+                new Button { Text = Lang.Undo, Click = () => session.Undo() },
+                new Button { Text = Lang.Save, Click = () => session.Save(), Primary = true },
+                new Button { Text = Lang.Close, Click = () => session.Escape() },
             };
 
             using (var bmp = new Bitmap(1, 1))
@@ -377,7 +377,7 @@ namespace MagicZones
         {
             if (session.ToolbarHidden)
             {
-                const string tip = "H: mostra barra";
+                string tip = Lang.ShowToolbar;
                 var ts = g.MeasureString(tip, small);
                 var tr = new RectangleF(Area.Left + (Area.Width - ts.Width - 24 * s) / 2, Area.Top + 8 * s, ts.Width + 24 * s, ts.Height + 8 * s);
                 using (var path = Geometry.RoundedRect(tr, tr.Height / 2))
@@ -410,13 +410,12 @@ namespace MagicZones
                 }
             }
 
-            string hint = session.Toast ??
-                "Trascina sul vuoto: nuova zona  ·  Bordi: ridimensiona  ·  Doppio clic / T: tipo  ·  Tasto dx / Canc: elimina  ·  Shift: niente magnete  ·  H: nascondi barra  ·  Invio: salva";
+            string hint = session.Toast ?? Lang.EditorHint;
             var hintRect = new RectangleF(tb.Left + 8 * s, tb.Bottom - 30 * s, tb.Width - 16 * s, 24 * s);
             DrawCenteredText(g, hint, small, session.Toast != null ? Color.FromArgb(255, 250, 204, 21) : Color.FromArgb(150, 255, 255, 255), hintRect);
 
             // Monitor badge bottom-left of the work area.
-            var badge = monitor.ToString() + (monitor.Primary ? " · principale" : "");
+            var badge = monitor.ToString() + (monitor.Primary ? Lang.PrimaryMonitor : "");
             var size = g.MeasureString(badge, small);
             var br = new RectangleF(Area.Left + 16 * s, Area.Bottom - 16 * s - size.Height - 10 * s, size.Width + 24 * s, size.Height + 10 * s);
             using (var path = Geometry.RoundedRect(br, br.Height / 2))

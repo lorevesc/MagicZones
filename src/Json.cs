@@ -18,7 +18,7 @@ namespace MagicZones
             p.SkipWs();
             var value = p.ReadValue();
             p.SkipWs();
-            if (!p.AtEnd) throw p.Error("contenuto extra dopo il valore JSON");
+            if (!p.AtEnd) throw p.Error(Lang.T("contenuto extra dopo il valore JSON", "extra content after the JSON value"));
             return value;
         }
 
@@ -142,7 +142,7 @@ namespace MagicZones
 
             public bool AtEnd => i >= s.Length;
 
-            public FormatException Error(string msg) => new FormatException($"JSON non valido (pos {i}): {msg}");
+            public FormatException Error(string msg) => new FormatException(Lang.T("JSON non valido", "invalid JSON") + $" (pos {i}): {msg}");
 
             public void SkipWs()
             {
@@ -162,7 +162,7 @@ namespace MagicZones
 
             public object ReadValue()
             {
-                if (AtEnd) throw Error("fine inattesa");
+                if (AtEnd) throw Error(Lang.T("fine inattesa", "unexpected end"));
                 char c = s[i];
                 if (c == '{') return ReadObject();
                 if (c == '[') return ReadArray();
@@ -171,7 +171,7 @@ namespace MagicZones
                 if (c == 'f' && Match("false")) return false;
                 if (c == 'n' && Match("null")) return null;
                 if (c == '-' || char.IsDigit(c)) return ReadNumber();
-                throw Error($"carattere inatteso '{c}'");
+                throw Error(Lang.T("carattere inatteso", "unexpected character") + $" '{c}'");
             }
 
             private bool Match(string word)
@@ -190,18 +190,18 @@ namespace MagicZones
                 while (true)
                 {
                     SkipWs();
-                    if (AtEnd || s[i] != '"') throw Error("attesa chiave");
+                    if (AtEnd || s[i] != '"') throw Error(Lang.T("attesa chiave", "expected key"));
                     string key = ReadString();
                     SkipWs();
-                    if (AtEnd || s[i] != ':') throw Error("atteso ':'");
+                    if (AtEnd || s[i] != ':') throw Error(Lang.T("atteso ':'", "expected ':'"));
                     i++;
                     SkipWs();
                     obj[key] = ReadValue();
                     SkipWs();
-                    if (AtEnd) throw Error("oggetto non chiuso");
+                    if (AtEnd) throw Error(Lang.T("oggetto non chiuso", "unclosed object"));
                     if (s[i] == ',') { i++; SkipWs(); if (i < s.Length && s[i] == '}') { i++; return obj; } continue; }
                     if (s[i] == '}') { i++; return obj; }
-                    throw Error("atteso ',' o '}'");
+                    throw Error(Lang.T("atteso ',' o '}'", "expected ',' or '}'"));
                 }
             }
 
@@ -216,10 +216,10 @@ namespace MagicZones
                     SkipWs();
                     list.Add(ReadValue());
                     SkipWs();
-                    if (AtEnd) throw Error("array non chiuso");
+                    if (AtEnd) throw Error(Lang.T("array non chiuso", "unclosed array"));
                     if (s[i] == ',') { i++; SkipWs(); if (i < s.Length && s[i] == ']') { i++; return list; } continue; }
                     if (s[i] == ']') { i++; return list; }
-                    throw Error("atteso ',' o ']'");
+                    throw Error(Lang.T("atteso ',' o ']'", "expected ',' or ']'"));
                 }
             }
 
@@ -229,11 +229,11 @@ namespace MagicZones
                 i++;
                 while (true)
                 {
-                    if (AtEnd) throw Error("stringa non chiusa");
+                    if (AtEnd) throw Error(Lang.T("stringa non chiusa", "unclosed string"));
                     char c = s[i++];
                     if (c == '"') return sb.ToString();
                     if (c != '\\') { sb.Append(c); continue; }
-                    if (AtEnd) throw Error("escape incompleto");
+                    if (AtEnd) throw Error(Lang.T("escape incompleto", "incomplete escape"));
                     char e = s[i++];
                     switch (e)
                     {
@@ -243,7 +243,7 @@ namespace MagicZones
                         case 'b': sb.Append('\b'); break;
                         case 'f': sb.Append('\f'); break;
                         case 'u':
-                            if (i + 4 > s.Length) throw Error("escape \\u incompleto");
+                            if (i + 4 > s.Length) throw Error(Lang.T("escape \\u incompleto", "incomplete \\u escape"));
                             sb.Append((char)int.Parse(s.Substring(i, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
                             i += 4;
                             break;
@@ -258,7 +258,7 @@ namespace MagicZones
                 if (s[i] == '-') i++;
                 while (i < s.Length && "0123456789.eE+-".IndexOf(s[i]) >= 0) i++;
                 if (!double.TryParse(s.Substring(start, i - start), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
-                    throw Error("numero non valido");
+                    throw Error(Lang.T("numero non valido", "invalid number"));
                 return d;
             }
         }
